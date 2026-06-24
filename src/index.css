@@ -1,0 +1,218 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-slate-150: #f1f5f9;
+  --color-slate-250: #cbd5e1;
+  --color-neon-lime: #9EFF33;
+  --color-neon-lime-light: #A1EE35;
+  --color-cyber-green: #2BD167;
+  --color-cyber-dark: #0B0C0E;
+  --color-cyber-card: #161A1D;
+  --color-cyber-card-light: #1C2024;
+  
+  /* Brand-new Light Mode Color System */
+  --color-brand-blue: #2F69FF;
+  --color-text-title: #1A1D20;
+  --color-text-desc: #4B5563;
+}
+
+/* 
+  Academic MCQs Arena - Global Theme & Variable Mapping
+  Implements a stunning, cheerful, highly interactive and colorful UI theme.
+*/
+
+:root {
+  --bg-gradient: linear-gradient(135deg, #A0C4FF 0%, #E2EFFF 100%);
+  --bg-frame: rgba(255, 255, 255, 0.65);
+  --bg-header: rgba(255, 255, 255, 0.85);
+  --box-shadow: 0 20px 40px -15px rgba(47, 105, 255, 0.15), 0 15px 25px -10px rgba(47, 105, 255, 0.1);
+}
+
+.dark {
+  --bg-gradient: radial-gradient(circle at top, #161A1D 0%, #0B0C0E 100%);
+  --bg-frame: #0B0C0E;
+  --bg-header: #161A1D;
+  --box-shadow: 0 20px 50px -15px rgba(158, 255, 51, 0.12);
+}
+
+/* Custom Glassmorphism Cards Utilities */
+.glass-card-light {
+  background-color: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.glass-card-dark {
+  background-color: rgba(22, 26, 29, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Base Body Styles */
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-gradient);
+}
+
+/* Mobile Frame Container Styling */
+.w-full.max-w-md {
+  background-color: var(--bg-frame);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: var(--box-shadow);
+  border-radius: 24px;
+}
+
+.dark .w-full.max-w-md {
+  background-color: var(--bg-frame);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: var(--box-shadow);
+}
+
+/* Clean up elements */
+* {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Display headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
+/* Subtopics and option list custom bullet hover animations */
+button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Modern responsive animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Light theme colorful chips */
+.light-mode-box-amber { background-color: #fff9eb; color: #b45309; border: 1.5px solid #fef3c7; }
+.light-mode-box-blue { background-color: #f0f7ff; color: #1d4ed8; border: 1.5px solid #dbeafe; }
+.light-mode-box-pink { background-color: #fff1f2; color: #e11d48; border: 1.5px solid #ffe4e6; }
+
+/* Dark theme colorful chips */
+.dark-mode-box-amber { background-color: rgba(251, 191, 36, 0.06); color: #fbbf24; border: 1.5px solid rgba(251, 191, 36, 0.2); }
+.dark-mode-box-blue { background-color: rgba(59, 130, 246, 0.06); color: #60a5fa; border: 1.5px solid rgba(59, 130, 246, 0.2); }
+.dark-mode-box-pink { background-color: rgba(244, 63, 94, 0.06); color: #f43f5e; border: 1.5px solid rgba(244, 63, 94, 0.2); }
+
+/* Interactive elements scaling feedback on desktop/mobile click */
+.cursor-pointer:active {
+  transform: scale(0.97);
+}
+
+/* Soft scrollbar styles */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.5);
+}
+
+/* Add custom class names for colorful modern UI */
+.gradient-text {
+  background: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-text-orange {
+  background: linear-gradient(135deg, #f97316 0%, #eab308 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-text-pink {
+  background: linear-gradient(135deg, #ec4899 0%, #f43f5e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Highlighting items elegantly */
+.option-btn-selected {
+  background-color: #f5f3ff !important;
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.12) !important;
+}
+
+/* Glowing decorative features */
+.active-pulse-ring {
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+}
+
+/* Smooth overlay transition */
+.backdrop-blur-md {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Perfect Readability High-Contrast overrides for Light Mode */
+.min-h-screen:not(.dark) h1,
+.min-h-screen:not(.dark) h2,
+.min-h-screen:not(.dark) h3,
+.min-h-screen:not(.dark) h4,
+.min-h-screen:not(.dark) h5,
+.min-h-screen:not(.dark) h6 {
+  color: #1A1D20 !important;
+}
+
+.min-h-screen:not(.dark) p,
+.min-h-screen:not(.dark) .text-slate-300,
+.min-h-screen:not(.dark) .text-slate-350,
+.min-h-screen:not(.dark) .text-slate-400,
+.min-h-screen:not(.dark) .text-slate-450,
+.min-h-screen:not(.dark) .text-slate-500,
+.min-h-screen:not(.dark) .text-slate-650,
+.min-h-screen:not(.dark) .text-[#6C737F],
+.min-h-screen:not(.dark) .text-gray-300,
+.min-h-screen:not(.dark) .text-gray-350,
+.min-h-screen:not(.dark) .text-gray-400,
+.min-h-screen:not(.dark) .text-gray-500 {
+  color: #4B5563 !important;
+}
