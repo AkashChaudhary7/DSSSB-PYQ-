@@ -3,11 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>DSSSB PYQ Prep</title>
+    <title>AT Mocks Prep</title>
     
     <!-- PWA Web App Manifest -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#312e81" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#eef4fa" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0B0C0E" />
     
     <!-- Premium Favicons & Touch Icons -->
     <link rel="icon" type="image/jpeg" href="/icon-192.jpg" />
@@ -16,12 +17,23 @@
     <!-- iOS Web App Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="DSSSB PYQ" />
+    <meta name="apple-mobile-web-app-title" content="AT Mocks" />
     <link rel="apple-touch-icon" href="/icon-192.jpg" />
     <link rel="apple-touch-icon" sizes="152x152" href="/icon-192.jpg" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.jpg" />
+    <style>
+      body {
+        background-color: #eef4fa;
+        overflow-x: hidden;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background-color: #0B0C0E;
+        }
+      }
+    </style>
   </head>
-  <body class="bg-[#0f172a] overflow-x-hidden">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
