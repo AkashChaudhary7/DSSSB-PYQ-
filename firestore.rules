@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper to check if user is signed in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Helper to check if request is from the owner of the document
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Rules for user profile data
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+      
+      // Nested attempts collection
+      match /attempts/{attemptId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Nested bookmarks collection
+      match /bookmarks/{bookmarkId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Nested wrong_questions collection
+      match /wrong_questions/{questionId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Rules for the public leaderboard
+    match /leaderboard/{userId} {
+      allow read: if true; // anyone can see the dashboard leaderboard
+      allow write: if isOwner(userId); // only the user can write their leaderboard entry
+    }
+  }
+}
