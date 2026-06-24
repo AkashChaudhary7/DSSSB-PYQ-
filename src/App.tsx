@@ -469,19 +469,19 @@ export default function App() {
 
   if (!currentExam) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 text-slate-100 selection:bg-indigo-500/25">
+      <div className={`min-h-screen ${theme === 'dark' ? 'dark bg-[#0B0C0E]' : 'bg-gradient-to-br from-[#e0eaf3] via-[#e8f0f7] to-[#eef4fa]'} text-slate-800 dark:text-slate-150 flex items-center justify-center p-4 selection:bg-indigo-500/20 transition-colors duration-300`}>
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-md bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6 text-center"
+          className="w-full max-w-md bg-white/90 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-6 text-center"
         >
-          <div className="mx-auto w-12 h-12 bg-indigo-950/40 border border-indigo-900/40 rounded-2xl flex items-center justify-center text-indigo-400">
+          <div className="mx-auto w-12 h-12 bg-blue-50 dark:bg-indigo-950/40 border border-blue-100 dark:border-indigo-900/40 rounded-2xl flex items-center justify-center text-blue-600 dark:text-indigo-400">
             <Icons.GraduationCap className="w-6 h-6 animate-pulse" />
           </div>
           <div>
-            <h2 className="text-lg font-black text-slate-100 tracking-tight uppercase">Select Target Exam</h2>
-            <p className="text-xs text-slate-400 mt-1 font-medium">Choose your primary target exam path to configure your mock curriculum.</p>
+            <h2 className="text-lg font-black text-slate-900 dark:text-slate-100 tracking-tight uppercase">Select Target Exam</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">Choose your primary target exam path to configure your mock curriculum.</p>
           </div>
 
           <div className="space-y-3">
@@ -503,13 +503,13 @@ export default function App() {
                   localStorage.setItem('cs_mcq_active_exam', exam.id);
                   localStorage.setItem('cs_mcq_selected_exams', JSON.stringify([exam.id]));
                 }}
-                className="w-full p-4 rounded-2xl border border-white/5 bg-slate-950/40 hover:bg-slate-900/60 hover:border-neon-lime/30 hover:shadow-[0_0_15px_rgba(158,255,51,0.15)] transition-all text-left block group cursor-pointer"
+                className="w-full p-4 rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-950/40 hover:bg-slate-50 dark:hover:bg-slate-900/60 hover:border-blue-300 dark:hover:border-neon-lime/30 hover:shadow-lg dark:hover:shadow-[0_0_15px_rgba(158,255,51,0.15)] transition-all text-left block group cursor-pointer"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-black text-slate-200 group-hover:text-neon-lime transition-colors">{exam.name}</span>
-                  <Icons.ChevronRight className="w-4 h-4 text-slate-450 group-hover:translate-x-0.5 group-hover:text-neon-lime transition-all" />
+                  <span className="text-sm font-black text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-neon-lime transition-colors">{exam.name}</span>
+                  <Icons.ChevronRight className="w-4 h-4 text-slate-400 dark:text-slate-450 group-hover:translate-x-0.5 group-hover:text-blue-600 dark:group-hover:text-neon-lime transition-all" />
                 </div>
-                <p className="text-[10.5px] text-slate-400 mt-1 leading-normal font-medium">{exam.desc}</p>
+                <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1 leading-normal font-medium">{exam.desc}</p>
               </motion.button>
             ))}
           </div>
