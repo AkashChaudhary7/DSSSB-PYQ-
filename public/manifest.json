@@ -1,12 +1,12 @@
 {
-  "name": "DSSSB PYQ Practice App",
-  "short_name": "DSSSB PYQ",
+  "name": "AT PYQ",
+  "short_name": "ATPYQ",
   "description": "Polished MCQ practice application with categorized quizzes, timed challenges, performance analytics, PDF exports, and AI-powered topic-based question generation.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0f172a",
-  "theme_color": "#312e81",
+  "background_color": "#0B0C0E",
+  "theme_color": "#0B0C0E",
   "icons": [
     {
       "src": "/icon-192.jpg",
