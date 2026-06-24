@@ -40,7 +40,6 @@ import * as Icons from 'lucide-react';
 import { getQuestionsCached } from './lib/indexedDB';
 import { syncQuestionsFromFirestore } from './lib/questionSync';
 import { motion, AnimatePresence } from 'motion/react';
-import PWAInstallPrompt from './components/PWAInstallPrompt';
 
 type MainView = 'home' | 'practice' | 'quiz' | 'bookmarks' | 'analytics' | 'generator' | 'roadmap';
 
@@ -121,6 +120,54 @@ export default function App() {
     customCount?: number;
     overrideQuestions?: Question[];
   } | null>(null);
+
+  // PWA Install State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [showIOSPrompt, setShowIOSPrompt] = useState(false);
+
+  useEffect(() => {
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true) {
+      setIsInstalled(true);
+      return;
+    }
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    
+    if (isIOS && isSafari) {
+      setShowIOSPrompt(true);
+    }
+
+    window.addEventListener('appinstalled', () => {
+      setIsInstalled(true);
+      setDeferredPrompt(null);
+    });
+
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) {
+      if (showIOSPrompt) {
+        alert('To install on iOS: tap the Share button and select "Add to Home Screen".');
+      }
+      return;
+    }
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsInstalled(true);
+      setDeferredPrompt(null);
+    }
+  };
 
   // Subtopic parameter to pass to generator
   const [generatorPreFill, setGeneratorPreFill] = useState<string>('');
@@ -547,6 +594,17 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            {!isInstalled && (deferredPrompt || showIOSPrompt) && (
+              <button
+                onClick={handleInstallClick}
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+                title="Install App"
+              >
+                <Icons.Download className="w-3.5 h-3.5" />
+                <span>Install</span>
+              </button>
+            )}
+
             {/* Password protected Admin icon - Highly premium & contrasting lock badge */}
             <button
               onClick={handleAdminClick}
@@ -845,7 +903,6 @@ export default function App() {
               </Suspense>
             </motion.div>
           </AnimatePresence>
-          <PWAInstallPrompt />
         </main>
 
         {/* Dynamic global navigation bottom tab controller with central floating circular Home button */}
