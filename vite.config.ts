@@ -11,7 +11,7 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'manifest.json', 'icon-192.jpg', 'icon-512.jpg'],
+        includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
         manifest: {
           name: 'AT Mocks',
           short_name: 'ATMocks',
@@ -21,14 +21,20 @@ export default defineConfig(() => {
           display: 'standalone',
           icons: [
             {
-              src: 'icon-192.jpg',
-              sizes: '192x192',
-              type: 'image/jpeg'
+              src: 'icon.svg',
+              sizes: 'any',
+              type: 'image/svg+xml',
+              purpose: 'any maskable'
             },
             {
-              src: 'icon-512.jpg',
+              src: 'icon-192.png',
+              sizes: '192x192',
+              type: 'image/png'
+            },
+            {
+              src: 'icon-512.png',
               sizes: '512x512',
-              type: 'image/jpeg'
+              type: 'image/png'
             }
           ]
         },
