@@ -57,6 +57,8 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
       console.error(err);
       if (err.code === 'auth/email-already-in-use') {
         setError('Email is already registered. Please log in.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('Email/Password login is not enabled in Firebase Authentication settings.');
       } else if (err.code === 'auth/weak-password') {
         setError('Password should be at least 6 characters.');
       } else if (err.code === 'auth/invalid-credential') {
