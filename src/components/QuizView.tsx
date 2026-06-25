@@ -337,7 +337,7 @@ export default function QuizView({
 
     const attempt: QuizAttempt = {
       id: `att-${Date.now()}`,
-      topic: isMockExam ? `${examType === 'dsssb_tgt_cs' ? 'DSSSB TGT CS' : 'DSSSB IT'} Mock Exam` : topic,
+      topic: isMockExam ? `${activeExamConfig?.name || examType} Mock Exam` : topic,
       subtopic: isMockExam ? 'All Subject Blueprints' : subtopic,
       timestamp: new Date().toISOString(),
       questionsCount: questions.length,
@@ -345,6 +345,7 @@ export default function QuizView({
       timeTakenSeconds: totalTimeTaken,
       difficulty: isMockExam ? 'mixed' : difficulty,
       isTimed,
+      isMockExam,
       questions: results
     };
 
@@ -396,13 +397,13 @@ export default function QuizView({
     const isSuccess = scorePct >= 70;
     
     return (
-      <div className="flex flex-col h-full bg-white/60 dark:bg-[#1A1D21]/90 backdrop-blur-xl text-slate-800 dark:text-slate-100 rounded-3xl overflow-hidden border border-slate-200 dark:border-white/10 relative select-none animate-fade-in p-6 space-y-6 shadow-xl" id="quiz-results-screen">
+      <div className="flex flex-col h-full bg-white/60 dark:bg-[#1A1D21]/90 backdrop-blur-xl text-slate-800 dark:text-slate-100 rounded-[24px] overflow-hidden border border-slate-200 dark:border-white/10 relative select-none animate-fade-in p-6 space-y-6 shadow-xl" id="quiz-results-screen">
         {/* Header Title */}
         <div className="text-center pt-2 pb-4 shrink-0 border-b border-slate-200 dark:border-white/5">
-          <div className="w-12 h-12 bg-linear-to-br from-[#2F69FF] to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg text-white">
+          <div className="w-12 h-12 bg-linear-to-br from-[#2F69FF] to-indigo-600 rounded-[16px] flex items-center justify-center mx-auto mb-3 shadow-lg text-white">
             <Icons.Sparkles className="w-6 h-6" />
           </div>
-          <h2 className="text-sm font-black text-slate-900 dark:text-white tracking-tight uppercase font-display">
+          <h2 className="text-[15px] font-black text-slate-900 dark:text-white tracking-tight uppercase font-display">
             {isMockExam ? 'Simulation Complete' : 'Practice Drill Results'}
           </h2>
           <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 block font-mono uppercase tracking-widest">
@@ -411,13 +412,13 @@ export default function QuizView({
         </div>
 
         {/* Big Percentage Wheel Card */}
-        <div className="relative p-6 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-[24px] text-center space-y-4 flex flex-col items-center shadow-inner">
-          <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
+        <div className="relative p-6 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-[20px] text-center space-y-4 flex flex-col items-center shadow-inner">
+          <div className="relative w-28 h-28 mx-auto flex items-center justify-center">
             {/* Circular SVG Meter */}
-            <svg className="absolute w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+            <svg className="absolute w-full h-full transform -rotate-90 drop-shadow-sm" viewBox="0 0 36 36">
               <path
                 className="text-slate-200 dark:text-white/5"
-                strokeWidth="2"
+                strokeWidth="2.5"
                 stroke="currentColor"
                 fill="none"
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
@@ -426,7 +427,7 @@ export default function QuizView({
                 initial={{ strokeDasharray: "0, 100" }}
                 animate={{ strokeDasharray: `${scorePct}, 100` }}
                 transition={{ duration: 1.5, ease: "easeOut" }}
-                className={`${isSuccess ? 'text-neon-lime' : scorePct >= 40 ? 'text-amber-400' : 'text-rose-500'}`}
+                className={`${isSuccess ? 'text-emerald-500 dark:text-neon-lime' : scorePct >= 40 ? 'text-amber-500 dark:text-amber-400' : 'text-rose-500'}`}
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 stroke="currentColor"
@@ -435,12 +436,12 @@ export default function QuizView({
               />
             </svg>
             <div className="text-center z-10 mt-1">
-              <span className={`text-2xl font-black block tracking-tighter ${isSuccess ? 'text-slate-800 dark:text-white' : 'text-slate-800 dark:text-white'}`}>{scorePct}<span className="text-xs">%</span></span>
-              <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block -mt-1">Accuracy</span>
+              <span className={`text-3xl font-black block tracking-tighter ${isSuccess ? 'text-emerald-600 dark:text-white' : 'text-slate-800 dark:text-white'}`}>{scorePct}<span className="text-sm opacity-70">%</span></span>
+              <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block -mt-1">Accuracy</span>
             </div>
           </div>
 
-          <p className="text-[11px] text-slate-600 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
+          <p className="text-[11px] text-slate-600 dark:text-slate-400 max-w-[280px] mx-auto leading-relaxed">
             {scorePct >= 80 ? 'Excellent job! You are exhibiting high competency in this domain.' :
              scorePct >= 70 ? 'Good work! Passing score achieved. Steady progress.' :
              scorePct >= 50 ? 'Steady performance. Targeted revision will close remaining comprehension gaps.' :
@@ -451,9 +452,9 @@ export default function QuizView({
         {/* Detailed Grid Stats */}
         <div className="grid grid-cols-2 gap-3 shrink-0">
           {/* Correct Count */}
-          <div className="p-3 bg-white dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/5 rounded-2xl flex items-center gap-3 transition-colors hover:border-neon-lime/30">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isSuccess ? 'bg-neon-lime/10 text-neon-lime' : 'bg-slate-100 dark:bg-white/5 text-emerald-500'}`}>
-              <Icons.Check className="w-4 h-4" />
+          <div className="p-3.5 bg-white dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/5 rounded-[16px] flex items-center gap-3 transition-colors hover:border-emerald-500/30 dark:hover:border-neon-lime/30 group">
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isSuccess ? 'bg-emerald-50 dark:bg-neon-lime/10 text-emerald-500 dark:text-neon-lime group-hover:bg-emerald-100 dark:group-hover:bg-neon-lime/20' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-500/20'}`}>
+              <Icons.Check className="w-4.5 h-4.5" />
             </div>
             <div className="text-left">
               <span className="text-xs font-black block text-slate-800 dark:text-slate-100 leading-tight">{correctCount} <span className="text-[9px] font-normal opacity-70">Right</span></span>
@@ -461,9 +462,9 @@ export default function QuizView({
           </div>
 
           {/* Incorrect/Wrong Count */}
-          <div className="p-3 bg-white dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/5 rounded-2xl flex items-center gap-3 transition-colors hover:border-rose-500/30">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-rose-50 dark:bg-rose-500/10 text-rose-500">
-              <Icons.X className="w-4 h-4" />
+          <div className="p-3.5 bg-white dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/5 rounded-[16px] flex items-center gap-3 transition-colors hover:border-rose-500/30 group">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-rose-50 dark:bg-rose-500/10 text-rose-500 group-hover:bg-rose-100 dark:group-hover:bg-rose-500/20">
+              <Icons.X className="w-4.5 h-4.5" />
             </div>
             <div className="text-left">
               <span className="text-xs font-black block text-slate-800 dark:text-slate-100 leading-tight">{wrongCount} <span className="text-[9px] font-normal opacity-70">Wrong</span></span>
@@ -471,9 +472,9 @@ export default function QuizView({
           </div>
 
           {/* Total Quiz Attempts */}
-          <div className="p-3 bg-white dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/5 rounded-2xl flex items-center gap-3 transition-colors">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-blue-50 dark:bg-blue-500/10 text-blue-500">
-              <Icons.Layers className="w-4 h-4" />
+          <div className="p-3.5 bg-white dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/5 rounded-[16px] flex items-center gap-3 transition-colors group hover:border-[#2F69FF]/30">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-blue-50 dark:bg-blue-500/10 text-[#2F69FF] dark:text-blue-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-500/20">
+              <Icons.Layers className="w-4.5 h-4.5" />
             </div>
             <div className="text-left">
               <span className="text-xs font-black block text-slate-800 dark:text-slate-100 leading-tight">Run #{totalAttemptsCount}</span>
@@ -481,9 +482,9 @@ export default function QuizView({
           </div>
 
           {/* Time Taken */}
-          <div className="p-3 bg-white dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/5 rounded-2xl flex items-center gap-3 transition-colors">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400">
-              <Icons.Clock className="w-4 h-4" />
+          <div className="p-3.5 bg-white dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/5 rounded-[16px] flex items-center gap-3 transition-colors group hover:border-slate-400/30 dark:hover:border-white/20">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 group-hover:bg-slate-100 dark:group-hover:bg-white/10">
+              <Icons.Clock className="w-4.5 h-4.5" />
             </div>
             <div className="text-left">
               <span className="text-xs font-black block text-slate-800 dark:text-slate-100 leading-tight">{formatTime(quizAttemptData.timeTakenSeconds)}</span>
@@ -497,17 +498,17 @@ export default function QuizView({
         <div className="flex gap-2 pt-2 shrink-0">
           <button
             onClick={onQuit}
-            className="flex-1 py-3 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold rounded-[14px] text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+            className="flex-1 py-3.5 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold rounded-[14px] text-[10px] uppercase tracking-widest transition-all cursor-pointer"
           >
             Back
           </button>
           
           <button
             onClick={() => onQuizFinished(quizAttemptData)}
-            className="flex-[2] py-3 bg-linear-to-r from-[#2F69FF] to-blue-600 hover:to-indigo-600 text-white font-black rounded-[14px] text-[10px] uppercase tracking-wider shadow-[0_4px_15px_rgba(47,105,255,0.3)] cursor-pointer transition-all flex items-center justify-center gap-2"
+            className="flex-[2] py-3.5 bg-linear-to-r from-[#2F69FF] to-blue-600 hover:to-indigo-600 text-white font-black rounded-[14px] text-[11px] uppercase tracking-widest shadow-[0_4px_15px_rgba(47,105,255,0.3)] cursor-pointer transition-all flex items-center justify-center gap-2"
           >
             <span>Confirm & Save</span>
-            <Icons.ArrowRight className="w-3.5 h-3.5" />
+            <Icons.ArrowRight className="w-4 h-4" />
           </button>
         </div>
       </div>
