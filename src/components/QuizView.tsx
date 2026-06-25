@@ -394,40 +394,39 @@ export default function QuizView({
 
     // Color code properties based on threshold of 70% accuracy
     const isSuccess = scorePct >= 70;
-    const statusBg = isSuccess ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200';
-    const statusText = isSuccess ? 'text-emerald-800' : 'text-amber-800';
-    const statusPillBg = isSuccess ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white';
     
     return (
-      <div className="flex flex-col h-full bg-white text-slate-800 rounded-3xl overflow-hidden border border-slate-200 relative select-none animate-fade-in p-4.5 space-y-4" id="quiz-results-screen">
+      <div className="flex flex-col h-full bg-white/60 dark:bg-[#1A1D21]/90 backdrop-blur-xl text-slate-800 dark:text-slate-100 rounded-3xl overflow-hidden border border-slate-200 dark:border-white/10 relative select-none animate-fade-in p-6 space-y-6 shadow-xl" id="quiz-results-screen">
         {/* Header Title */}
-        <div className="text-center py-2 shrink-0">
-          <div className="w-11 h-11 bg-blue-50 border border-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-2 shadow-sm">
-            <Icons.CheckSquare className="w-5.5 h-5.5" />
+        <div className="text-center pt-2 pb-4 shrink-0 border-b border-slate-200 dark:border-white/5">
+          <div className="w-12 h-12 bg-linear-to-br from-[#2F69FF] to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg text-white">
+            <Icons.Sparkles className="w-6 h-6" />
           </div>
-          <h2 className="text-xs font-black text-slate-900 tracking-tight uppercase">
-            Practice Run Results
+          <h2 className="text-sm font-black text-slate-900 dark:text-white tracking-tight uppercase font-display">
+            {isMockExam ? 'Simulation Complete' : 'Practice Drill Results'}
           </h2>
-          <span className="text-[9.5px] text-slate-500 mt-0.5 block">
-            {isMockExam ? 'Official Simulation Complete' : 'Practice Drill Completed'}
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 block font-mono uppercase tracking-widest">
+            Performance Summary
           </span>
         </div>
 
         {/* Big Percentage Wheel Card */}
-        <div className="p-4 bg-blue-50/20 border border-blue-100 rounded-2xl text-center space-y-3">
-          <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
+        <div className="relative p-6 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-[24px] text-center space-y-4 flex flex-col items-center shadow-inner">
+          <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
             {/* Circular SVG Meter */}
             <svg className="absolute w-full h-full transform -rotate-90" viewBox="0 0 36 36">
               <path
-                className="text-slate-100"
-                strokeWidth="2.5"
+                className="text-slate-200 dark:text-white/5"
+                strokeWidth="2"
                 stroke="currentColor"
                 fill="none"
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
-              <path
-                className={`${isSuccess ? 'text-emerald-500' : scorePct >= 40 ? 'text-amber-500' : 'text-rose-500'}`}
-                strokeDasharray={`${scorePct}, 100`}
+              <motion.path
+                initial={{ strokeDasharray: "0, 100" }}
+                animate={{ strokeDasharray: `${scorePct}, 100` }}
+                transition={{ duration: 1.5, ease: "easeOut" }}
+                className={`${isSuccess ? 'text-neon-lime' : scorePct >= 40 ? 'text-amber-400' : 'text-rose-500'}`}
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 stroke="currentColor"
@@ -435,13 +434,13 @@ export default function QuizView({
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
             </svg>
-            <div className="text-center z-10">
-              <span className="text-lg font-black block tracking-tight text-slate-800">{scorePct}%</span>
-              <span className="text-[7.5px] font-bold text-slate-550 uppercase tracking-widest block -mt-1">Accuracy</span>
+            <div className="text-center z-10 mt-1">
+              <span className={`text-2xl font-black block tracking-tighter ${isSuccess ? 'text-slate-800 dark:text-white' : 'text-slate-800 dark:text-white'}`}>{scorePct}<span className="text-xs">%</span></span>
+              <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block -mt-1">Accuracy</span>
             </div>
           </div>
 
-          <p className="text-[10.5px] text-slate-600 px-1 font-medium leading-relaxed">
+          <p className="text-[11px] text-slate-600 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
             {scorePct >= 80 ? 'Excellent job! You are exhibiting high competency in this domain.' :
              scorePct >= 70 ? 'Good work! Passing score achieved. Steady progress.' :
              scorePct >= 50 ? 'Steady performance. Targeted revision will close remaining comprehension gaps.' :
@@ -449,73 +448,45 @@ export default function QuizView({
           </p>
         </div>
 
-        {/* Dynamic Color-Coded Success/Retry Indicator Banner */}
-        <div className={`p-3.5 rounded-xl border ${statusBg} text-left flex items-center gap-3 shadow-xs shrink-0`}>
-          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-white shadow-xs border border-slate-100">
-            {isSuccess ? (
-              <Icons.CheckCircle className="w-4.5 h-4.5 text-emerald-600 animate-pulse" />
-            ) : (
-              <Icons.AlertCircle className="w-4.5 h-4.5 text-amber-500" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <span className={`text-[8px] font-black tracking-widest uppercase block ${statusText} font-mono`}>
-              Performance Directive
-            </span>
-            <h4 className={`text-[11px] font-black uppercase leading-tight ${statusText} truncate`}>
-              {isSuccess ? 'Passed • Domain Mastery Achieved' : 'Re-attempt Recommended'}
-            </h4>
-            <p className="text-[9.5px] text-slate-500 font-sans mt-0.5 leading-normal">
-              {isSuccess 
-                ? 'Your score is above the 70% proficiency line. Keep up this momentum!' 
-                : 'Your accuracy is below the 70% threshold. Try a focused review or re-run this topic.'}
-            </p>
-          </div>
-        </div>
-
         {/* Detailed Grid Stats */}
-        <div className="grid grid-cols-2 gap-2 text-slate-800 shrink-0">
+        <div className="grid grid-cols-2 gap-3 shrink-0">
           {/* Correct Count */}
-          <div className="p-2.5 bg-emerald-50/40 border border-emerald-100 rounded-xl text-center flex items-center gap-2">
-            <div className="w-6.5 h-6.5 bg-white border border-emerald-100 rounded-lg flex items-center justify-center shrink-0">
-              <Icons.Check className="w-3.5 h-3.5 text-emerald-650" />
+          <div className="p-3 bg-white dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/5 rounded-2xl flex items-center gap-3 transition-colors hover:border-neon-lime/30">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isSuccess ? 'bg-neon-lime/10 text-neon-lime' : 'bg-slate-100 dark:bg-white/5 text-emerald-500'}`}>
+              <Icons.Check className="w-4 h-4" />
             </div>
             <div className="text-left">
-              <span className="text-[10.5px] font-black block text-slate-800 leading-tight">{correctCount} Right</span>
-              <span className="text-[8px] text-slate-400 block font-medium">Full Points</span>
+              <span className="text-xs font-black block text-slate-800 dark:text-slate-100 leading-tight">{correctCount} <span className="text-[9px] font-normal opacity-70">Right</span></span>
             </div>
           </div>
 
           {/* Incorrect/Wrong Count */}
-          <div className="p-2.5 bg-rose-50/45 border border-rose-100 rounded-xl text-center flex items-center gap-2">
-            <div className="w-6.5 h-6.5 bg-white border border-rose-100 rounded-lg flex items-center justify-center shrink-0">
-              <Icons.X className="w-3.5 h-3.5 text-rose-600" />
+          <div className="p-3 bg-white dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/5 rounded-2xl flex items-center gap-3 transition-colors hover:border-rose-500/30">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-rose-50 dark:bg-rose-500/10 text-rose-500">
+              <Icons.X className="w-4 h-4" />
             </div>
             <div className="text-left">
-              <span className="text-[10.5px] font-black block text-slate-800 leading-tight">{wrongCount} Wrong</span>
-              <span className="text-[8px] text-slate-400 block font-medium">To revision</span>
+              <span className="text-xs font-black block text-slate-800 dark:text-slate-100 leading-tight">{wrongCount} <span className="text-[9px] font-normal opacity-70">Wrong</span></span>
             </div>
           </div>
 
           {/* Total Quiz Attempts */}
-          <div className="p-2.5 bg-indigo-50/40 border border-indigo-100 rounded-xl text-center flex items-center gap-2">
-            <div className="w-6.5 h-6.5 bg-white border border-indigo-150 rounded-lg flex items-center justify-center shrink-0">
-              <Icons.Layers className="w-3.5 h-3.5 text-indigo-600" />
+          <div className="p-3 bg-white dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/5 rounded-2xl flex items-center gap-3 transition-colors">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-blue-50 dark:bg-blue-500/10 text-blue-500">
+              <Icons.Layers className="w-4 h-4" />
             </div>
             <div className="text-left">
-              <span className="text-[10.5px] font-black block text-slate-800 leading-tight">Run #{totalAttemptsCount}</span>
-              <span className="text-[8px] text-slate-400 block font-medium">Total Attempts</span>
+              <span className="text-xs font-black block text-slate-800 dark:text-slate-100 leading-tight">Run #{totalAttemptsCount}</span>
             </div>
           </div>
 
           {/* Time Taken */}
-          <div className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-center flex items-center gap-2">
-            <div className="w-6.5 h-6.5 bg-white border border-slate-200 rounded-lg flex items-center justify-center shrink-0">
-              <Icons.Clock className="w-3.5 h-3.5 text-slate-550" />
+          <div className="p-3 bg-white dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/5 rounded-2xl flex items-center gap-3 transition-colors">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400">
+              <Icons.Clock className="w-4 h-4" />
             </div>
             <div className="text-left">
-              <span className="text-[10.5px] font-black block text-slate-800 leading-tight">{formatTime(quizAttemptData.timeTakenSeconds)}</span>
-              <span className="text-[8px] text-slate-400 block font-medium">Duration</span>
+              <span className="text-xs font-black block text-slate-800 dark:text-slate-100 leading-tight">{formatTime(quizAttemptData.timeTakenSeconds)}</span>
             </div>
           </div>
         </div>
@@ -523,19 +494,20 @@ export default function QuizView({
         {/* Footer actions */}
         <div className="flex-1" />
 
-        <div className="space-y-2 pt-3 shrink-0">
+        <div className="flex gap-2 pt-2 shrink-0">
           <button
-            onClick={() => onQuizFinished(quizAttemptData)}
-            className="w-full py-2.5 bg-blue-650 hover:bg-blue-700 text-slate-50 font-extrabold rounded-xl text-[10px] uppercase tracking-wider shadow-md cursor-pointer transition-colors"
+            onClick={onQuit}
+            className="flex-1 py-3 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold rounded-[14px] text-[10px] uppercase tracking-wider transition-all cursor-pointer"
           >
-            Confirm & Save to Analytics
+            Back
           </button>
           
           <button
-            onClick={onQuit}
-            className="w-full py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-650 hover:text-slate-850 font-bold rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+            onClick={() => onQuizFinished(quizAttemptData)}
+            className="flex-[2] py-3 bg-linear-to-r from-[#2F69FF] to-blue-600 hover:to-indigo-600 text-white font-black rounded-[14px] text-[10px] uppercase tracking-wider shadow-[0_4px_15px_rgba(47,105,255,0.3)] cursor-pointer transition-all flex items-center justify-center gap-2"
           >
-            Back to Practice Arena
+            <span>Confirm & Save</span>
+            <Icons.ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
