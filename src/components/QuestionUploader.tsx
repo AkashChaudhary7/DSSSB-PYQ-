@@ -643,6 +643,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
   const [editFormTime, setEditFormTime] = useState<number>(120);
   const [editFormNegative, setEditFormNegative] = useState<number>(-0.25);
   const [editFormTargetScore, setEditFormTargetScore] = useState<number>(70);
+  const [editFormTargetDate, setEditFormTargetDate] = useState<string>('');
   const [subjectAllotments, setSubjectAllotments] = useState<Record<string, number>>({});
   
   // Managing unit tree
@@ -662,6 +663,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
       setEditFormTime(targetExamConfig.rules.timeLimitMinutes);
       setEditFormNegative(targetExamConfig.rules.negativeMarking);
       setEditFormTargetScore(targetExamConfig.targetScore || 70);
+      setEditFormTargetDate(targetExamConfig.targetDate || '');
       setSubjectAllotments({ ...targetExamConfig.rules.subjectAllotments });
       if (targetExamConfig.subjects.length > 0) {
         setTargetSubjectForTopic(targetExamConfig.subjects[0].name);
@@ -677,6 +679,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
         return {
           ...ex,
           targetScore: editFormTargetScore,
+          targetDate: editFormTargetDate,
           rules: {
             numQuestions: editFormNumQuestions,
             timeLimitMinutes: editFormTime,
@@ -926,7 +929,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
           className={`flex-1 whitespace-nowrap px-4 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${activeTab === 'upload' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
         >
           <Icons.Upload className={`w-4 h-4 ${activeTab === 'upload' ? 'text-indigo-200' : 'text-emerald-500'}`} />
-          <span>Subject Upload</span>
+          <span></span>
         </button>
 
         <button
@@ -938,7 +941,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
           className={`flex-1 whitespace-nowrap px-4 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${activeTab === 'upload_mock' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
         >
           <Icons.FileArchive className={`w-4 h-4 ${activeTab === 'upload_mock' ? 'text-indigo-200' : 'text-rose-500'}`} />
-          <span>Upload Full Mock</span>
+          <span>Full Mock</span>
         </button>
 
         <button
@@ -1329,6 +1332,18 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
                   className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg p-2 text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 text-center font-bold"
                 />
               </div>
+            </div>
+
+            {/* Target Exam Date Input */}
+            <div className="p-3 bg-white dark:bg-black/10 border border-slate-200/50 dark:border-white/5 rounded-xl space-y-1">
+              <label className="block text-[9px] font-mono text-indigo-600 dark:text-indigo-400 uppercase font-black tracking-wider">Target Exam Date (For Days Left Countdown)</label>
+              <input 
+                type="date"
+                value={editFormTargetDate}
+                onChange={(e) => setEditFormTargetDate(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 font-bold cursor-pointer"
+              />
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-normal font-medium">Updates the "Days Left" countdown dynamic widget on the student's primary dashboard instantly.</p>
             </div>
 
             {/* Subject allotments section */}
