@@ -41,6 +41,7 @@ export interface ExamConfig {
   subjects: ExamSubject[];
   rules: ExamRule;
   targetScore?: number;
+  targetDate?: string;
 }
 
 export interface QuizAttempt {
