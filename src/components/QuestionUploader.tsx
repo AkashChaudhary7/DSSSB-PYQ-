@@ -547,6 +547,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
   const [editFormNumQuestions, setEditFormNumQuestions] = useState<number>(100);
   const [editFormTime, setEditFormTime] = useState<number>(120);
   const [editFormNegative, setEditFormNegative] = useState<number>(-0.25);
+  const [editFormTargetScore, setEditFormTargetScore] = useState<number>(70);
   const [subjectAllotments, setSubjectAllotments] = useState<Record<string, number>>({});
   
   // Managing unit tree
@@ -565,6 +566,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
       setEditFormNumQuestions(targetExamConfig.rules.numQuestions);
       setEditFormTime(targetExamConfig.rules.timeLimitMinutes);
       setEditFormNegative(targetExamConfig.rules.negativeMarking);
+      setEditFormTargetScore(targetExamConfig.targetScore || 70);
       setSubjectAllotments({ ...targetExamConfig.rules.subjectAllotments });
       if (targetExamConfig.subjects.length > 0) {
         setTargetSubjectForTopic(targetExamConfig.subjects[0].name);
@@ -579,6 +581,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
       if (ex.id === editingExamId) {
         return {
           ...ex,
+          targetScore: editFormTargetScore,
           rules: {
             numQuestions: editFormNumQuestions,
             timeLimitMinutes: editFormTime,
@@ -1005,9 +1008,9 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
               2. EXAM SIMULATION RULES
             </h3>
 
-            <div className="grid grid-cols-3 gap-3 text-xs">
+            <div className="grid grid-cols-4 gap-3 text-xs">
               <div>
-                <label className="block text-[9px] font-mono text-slate-400 mb-1 uppercase font-bold">Total Questions</label>
+                <label className="block text-[9px] font-mono text-slate-400 mb-1 uppercase font-bold">Total Qs</label>
                 <input 
                   type="number"
                   value={editFormNumQuestions}
@@ -1017,11 +1020,21 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
               </div>
 
               <div>
-                <label className="block text-[9px] font-mono text-slate-400 mb-1 uppercase font-bold">Time (Minutes)</label>
+                <label className="block text-[9px] font-mono text-slate-400 mb-1 uppercase font-bold">Time (Mins)</label>
                 <input 
                   type="number"
                   value={editFormTime}
                   onChange={(e) => setEditFormTime(Number(e.target.value))}
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg p-2 text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 text-center font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-mono text-slate-400 mb-1 uppercase font-bold">Target Score</label>
+                <input 
+                  type="number"
+                  value={editFormTargetScore}
+                  onChange={(e) => setEditFormTargetScore(Number(e.target.value))}
                   className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg p-2 text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 text-center font-bold"
                 />
               </div>
