@@ -302,15 +302,13 @@ export default function App() {
 
     // 3. Incrementally sync from Firestore in background
     try {
-      if (currentUser) {
-        const selectedExams = getSelectedExams();
-        const synced = await syncQuestionsFromFirestore(selectedExams);
-        if (synced && synced.length > 0) {
-          const updatedCached = await getQuestionsCached();
-          const seenIds = new Set(baseQuestions.map(q => q.id));
-          const uniqueCached = updatedCached.filter(q => !seenIds.has(q.id));
-          setQuestionPool([...baseQuestions, ...uniqueCached]);
-        }
+      const selectedExams = getSelectedExams();
+      const synced = await syncQuestionsFromFirestore(selectedExams);
+      if (synced && synced.length > 0) {
+        const updatedCached = await getQuestionsCached();
+        const seenIds = new Set(baseQuestions.map(q => q.id));
+        const uniqueCached = updatedCached.filter(q => !seenIds.has(q.id));
+        setQuestionPool([...baseQuestions, ...uniqueCached]);
       }
     } catch (e) {
       console.warn("Background firestore incremental sync warning:", e);
@@ -492,7 +490,7 @@ export default function App() {
 
   const handleAdminVerify = (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPasswordInput === '124578') {
+    if (adminPasswordInput === 'dsssb123') {
       setAdminUnlocked(true);
       try {
         localStorage.setItem('cs_mcq_admin_unlocked', 'true');
@@ -585,7 +583,7 @@ export default function App() {
               <Icons.GraduationCap className="w-4 h-4 text-blue-600 dark:text-indigo-400 font-bold" />
             </div>
             <div className="flex flex-col text-left">
-              <h1 className="text-xs font-black text-slate-900 dark:text-slate-100 tracking-tight leading-none uppercase font-display">AT PYQ</h1>
+              <h1 className="text-xs font-black text-slate-900 dark:text-slate-100 tracking-tight leading-none uppercase font-display">AT Mocks</h1>
               <span className="text-[8px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 leading-none font-bold">by Akash Chaudhary</span>
             </div>
           </div>
@@ -618,7 +616,7 @@ export default function App() {
               {adminUnlocked ? (
                 <div className="flex items-center gap-1">
                   <Icons.ShieldAlert className="w-4 h-4 text-amber-400 animate-bounce" />
-                  <span className="text-[9px] font-black uppercase tracking-wider font-mono"></span>
+                  <span className="text-[9px] font-black uppercase tracking-wider font-mono">Staff</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1">
@@ -709,7 +707,7 @@ export default function App() {
                   <form onSubmit={handleAdminVerify} className="space-y-3">
                     <input
                       type="password"
-                      placeholder="Enter Password"
+                      placeholder="Enter Password (dsssb123)"
                       value={adminPasswordInput}
                       onChange={(e) => setAdminPasswordInput(e.target.value)}
                       className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-xs text-center font-mono outline-none focus:border-indigo-500 text-slate-250"
