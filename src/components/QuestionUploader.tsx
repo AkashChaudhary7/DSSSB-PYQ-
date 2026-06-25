@@ -778,31 +778,6 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
             </button>
           </div>
         </div>
-
-        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-          {/* Real-time Firebase Sync Status Indicator */}
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono font-bold transition-all shrink-0 ${
-            firebaseStatus === 'syncing' 
-              ? 'bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse'
-              : firebaseStatus === 'offline'
-                ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
-                : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-          }`}>
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-              firebaseStatus === 'syncing' 
-                ? 'bg-amber-500'
-                : firebaseStatus === 'offline'
-                  ? 'bg-rose-550 animate-ping'
-                  : 'bg-emerald-500 animate-pulse'
-            }`} />
-            <span className="whitespace-nowrap">
-              {firebaseStatus === 'syncing' 
-                ? 'Firebase: Syncing...' 
-                : firebaseStatus === 'offline' 
-                  ? 'Firebase: Offline' 
-                  : 'Firebase: Synced'}
-            </span>
-          </div>
           
           <div className="hidden sm:flex items-center gap-2 shrink-0">
             {onLockAdmin && (
