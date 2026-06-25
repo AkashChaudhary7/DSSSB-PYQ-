@@ -184,57 +184,57 @@ export default function HomeView({
   }
 
   return (
-    <div className="space-y-4 text-slate-800 dark:text-slate-100 font-sans" id="home-view-container">
+    <div className="space-y-6 text-slate-800 dark:text-slate-100 font-sans w-full" id="home-view-container">
 
       {/* 1. Scholar Welcome & Preparation Goal Dropdown (Unified, Compact & Highly Premium) */}
       <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className={`bg-gradient-to-br ${theme === 'dark' ? 'from-[#161A1D] to-[#0B0C0E] border-white/5 shadow-[0_0_20px_rgba(158,255,51,0.05)] hover:border-neon-lime/30' : 'from-[#2F69FF] to-[#1e40af] border-white/20 shadow-lg hover:shadow-[0_12px_24px_rgba(47,105,255,0.25)]'} backdrop-blur-xl border text-white rounded-[20px] p-4 text-left relative overflow-hidden group transition-all duration-300`}
+        initial={{ opacity: 0, scale: 0.98, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className={`bg-gradient-to-br ${theme === 'dark' ? 'from-[#1A1D21] to-[#0D0F12] border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:border-neon-lime/40' : 'from-[#2F69FF] to-[#1a3891] border-white/20 shadow-[0_12px_40px_rgba(47,105,255,0.3)] hover:shadow-[0_16px_50px_rgba(47,105,255,0.4)]'} backdrop-blur-2xl border text-white rounded-[24px] p-6 text-left relative overflow-hidden group transition-all duration-500`}
       >
-        <div className="absolute inset-0 opacity-15 bg-[radial-gradient(circle_at_bottom_right,_var(--tw-gradient-stops))] from-indigo-500 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-400 via-transparent to-transparent pointer-events-none transition-opacity duration-500 group-hover:opacity-40" />
         
-        <div className="flex items-center justify-between relative z-10">
-          <div className="space-y-0.5">
-            <h2 className="text-[13.5px] font-black tracking-tight flex items-center gap-1.5 font-display">
-              Hello, {userProfile?.displayName || 'Scholar'} 👋
+        <div className="flex items-start justify-between relative z-10">
+          <div className="space-y-1.5">
+            <h2 className="text-[15px] font-black tracking-tight flex items-center gap-2 font-display">
+              Hello, {userProfile?.displayName || 'Scholar'} <span className="animate-pulse">👋</span>
             </h2>
-            <div className="flex items-center gap-1">
-              <span className="text-[9px] text-indigo-100 font-mono font-black uppercase">Goal:</span>
+            <div className="flex items-center gap-1.5">
+              <span className={`text-[9px] font-mono font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-blue-200'}`}>Target Goal:</span>
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setShowPathSelector(true)}
-                className="text-[10px] font-extrabold text-amber-300 hover:text-amber-200 underline decoration-dotted underline-offset-2 transition-colors cursor-pointer flex items-center gap-1 leading-none"
+                className="text-[11px] font-extrabold text-amber-300 hover:text-amber-200 underline decoration-amber-300/40 decoration-dotted underline-offset-4 transition-colors cursor-pointer flex items-center gap-1 leading-none"
               >
                 <span>{currentExamConfig?.name || 'Loading goal...'}</span>
-                <Icons.ChevronDown className="w-3 h-3 text-amber-300" />
+                <Icons.ChevronDown className="w-3.5 h-3.5 text-amber-300" />
               </motion.button>
             </div>
           </div>
           
-          <div className="bg-white/10 px-2.5 py-0.5 rounded-full border border-white/10 flex items-center gap-1 shrink-0">
-            <Icons.Sparkles className="w-2.5 h-2.5 text-amber-300 fill-amber-300 shrink-0" />
-            <span className="text-[8px] font-black tracking-wider uppercase font-mono">
+          <div className="bg-black/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5 shrink-0 shadow-inner">
+            <Icons.Sparkles className="w-3 h-3 text-amber-300 fill-amber-300 shrink-0" />
+            <span className="text-[9px] font-black tracking-widest uppercase font-mono text-amber-50">
               {todayAttemptsCount > 0 ? `${todayAttemptsCount} Streak` : 'Active'}
             </span>
           </div>
         </div>
 
         {/* Dynamic miniature stats grid */}
-        <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-white/10 relative z-10 text-center">
-          <div>
-            <span className="text-[7.5px] text-indigo-100 block font-bold tracking-wider uppercase font-mono">PRACTICED</span>
-            <span className="text-[10.5px] font-black font-mono tracking-tight mt-0.5 block">{attempts.length} Qs</span>
+        <div className="grid grid-cols-3 gap-3 mt-5 pt-4 border-t border-white/10 relative z-10 text-center">
+          <div className="group/stat cursor-default">
+            <span className={`text-[8px] block font-bold tracking-widest uppercase font-mono transition-colors ${theme === 'dark' ? 'text-slate-400 group-hover/stat:text-slate-300' : 'text-blue-200 group-hover/stat:text-blue-100'}`}>Practiced</span>
+            <span className="text-[13px] font-black font-mono tracking-tight mt-1 block">{attempts.length} <span className="text-[9px] opacity-70 font-sans">Qs</span></span>
           </div>
-          <div className="border-l border-white/10">
-            <span className="text-[7.5px] text-indigo-100 block font-bold tracking-wider uppercase font-mono">EXAM Qs</span>
-            <span className="text-[10.5px] font-black font-mono tracking-tight mt-0.5 block">{totalExamQuestionsCount}</span>
+          <div className="border-l border-white/10 group/stat cursor-default">
+            <span className={`text-[8px] block font-bold tracking-widest uppercase font-mono transition-colors ${theme === 'dark' ? 'text-slate-400 group-hover/stat:text-slate-300' : 'text-blue-200 group-hover/stat:text-blue-100'}`}>Total Qs</span>
+            <span className="text-[13px] font-black font-mono tracking-tight mt-1 block">{totalExamQuestionsCount}</span>
           </div>
-          <div className="border-l border-white/10">
-            <span className="text-[7.5px] text-indigo-100 block font-bold tracking-wider uppercase font-mono">ACCURACY</span>
-            <span className="text-[10.5px] font-black font-mono tracking-tight mt-0.5 block">{overallAccuracy}%</span>
+          <div className="border-l border-white/10 group/stat cursor-default">
+            <span className={`text-[8px] block font-bold tracking-widest uppercase font-mono transition-colors ${theme === 'dark' ? 'text-slate-400 group-hover/stat:text-slate-300' : 'text-blue-200 group-hover/stat:text-blue-100'}`}>Accuracy</span>
+            <span className="text-[13px] font-black font-mono tracking-tight mt-1 block">{overallAccuracy}<span className="text-[10px] opacity-70">%</span></span>
           </div>
         </div>
       </motion.div>
@@ -259,56 +259,57 @@ export default function HomeView({
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-        className="space-y-3 pt-1"
+        className="space-y-4 pt-2"
       >
-        <div className="flex items-center justify-between px-0.5">
-          <h3 className={`text-[11.5px] font-black uppercase tracking-tight font-display flex items-center gap-1.5 ${theme === 'dark' ? 'text-slate-100' : 'text-[#1A1D20]'}`}>
-            <Icons.Cpu className={`w-3.5 h-3.5 ${theme === 'dark' ? 'text-neon-lime' : 'text-[#2F69FF]'}`} />
+        <div className="flex items-center justify-between px-1">
+          <h3 className={`text-[12.5px] font-black uppercase tracking-tight font-display flex items-center gap-2 ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>
+            <Icons.Cpu className={`w-4 h-4 ${theme === 'dark' ? 'text-neon-lime' : 'text-[#2F69FF]'}`} />
             <span>Syllabus Explorer</span>
           </h3>
-          <span className="text-[8.5px] text-slate-400 dark:text-slate-500 font-extrabold tracking-wider uppercase font-mono">
-            {subjectsList.length} Subjects configured
+          <span className={`text-[9px] font-extrabold tracking-widest uppercase font-mono ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+            {subjectsList.length} Subjects
           </span>
         </div>
 
         {/* Horizontal Category tabs with thematic color coordination */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1 select-none scrollbar-none">
+        <div className="flex gap-2 overflow-x-auto pb-2 select-none scrollbar-none px-1">
           {subjectsList.map((subj) => {
             const isActive = activeSubjectTab === subj;
             const count = subjectQuestionsCountMap[subj] || 0;
 
             return (
               <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 key={subj}
                 onClick={() => setActiveSubjectTab(subj)}
-                className={`px-3.5 py-1.5 rounded-full text-[10px] font-extrabold shrink-0 flex items-center border transition-all cursor-pointer ${
+                className={`px-4 py-2 rounded-full text-[11px] font-extrabold shrink-0 flex items-center border transition-all duration-300 cursor-pointer ${
                   isActive
                     ? theme === 'dark'
-                      ? 'border-neon-lime bg-neon-lime/10 text-neon-lime shadow-md dark:shadow-[0_0_10px_rgba(158,255,51,0.15)]'
-                      : 'border-[#2F69FF] bg-[#2F69FF]/10 text-[#2F69FF] shadow-md shadow-[#2F69FF]/10'
+                      ? 'border-neon-lime bg-neon-lime/15 text-neon-lime shadow-[0_4px_15px_rgba(158,255,51,0.2)]'
+                      : 'border-[#2F69FF] bg-[#2F69FF] text-white shadow-[0_4px_15px_rgba(47,105,255,0.3)]'
                     : theme === 'dark'
-                      ? 'border-white/5 bg-slate-950/20 text-slate-400 hover:bg-slate-850/40 hover:text-white'
-                      : 'border-white/40 bg-white/40 backdrop-blur-md text-[#6C737F] hover:bg-white/65 hover:text-[#1A1D20]'
+                      ? 'border-white/5 bg-[#161A1D]/80 text-slate-400 hover:bg-[#1A1D21] hover:text-slate-200 hover:border-white/10'
+                      : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800 hover:border-slate-300'
                 }`}
               >
-                <span>{subj} ({count})</span>
+                <span>{subj} <span className="opacity-60 ml-1 font-mono text-[9px]">({count})</span></span>
               </motion.button>
             );
           })}
         </div>
 
         {/* Topics List under Selected Subject (Highly Minimalist, Clickable glassmorphic cards) */}
-        <div className="space-y-2">
+        <div className="space-y-3 px-1">
           {currentSubjectTopics.length === 0 ? (
-            <div className={`p-8 text-center text-slate-400 backdrop-blur-md rounded-2xl border text-[11px] font-semibold ${theme === 'dark' ? 'bg-slate-900/40 border-white/5' : 'bg-white/40 border-white/30'}`}>
-              Select a subject above to study chapter modules.
+            <div className={`p-10 text-center backdrop-blur-xl rounded-[24px] border border-dashed flex flex-col items-center justify-center gap-3 ${theme === 'dark' ? 'bg-[#161A1D]/50 border-white/10 text-slate-400' : 'bg-white/60 border-slate-300 text-slate-500'}`}>
+              <Icons.BookOpen className="w-8 h-8 opacity-20" />
+              <span className="text-[12px] font-bold tracking-tight">Select a subject above to explore chapter modules.</span>
             </div>
           ) : (
             currentSubjectTopics.map((topic, index) => {
               const isExpanded = expandedTopic === topic.name;
-              const topicQuestionsCount = topicCountsMap[topic.name] || 15;
+              const topicQuestionsCount = topicCountsMap[topic.name] || 0;
 
               return (
                 <motion.div
@@ -317,53 +318,59 @@ export default function HomeView({
                   transition={{ duration: 0.35, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] }}
                   key={topic.name}
                   onClick={() => setExpandedTopic(isExpanded ? null : topic.name)}
-                  className={`p-3.5 backdrop-blur-md rounded-2xl text-left space-y-2.5 shadow-xs transition-all duration-300 cursor-pointer group ${
+                  className={`p-4 backdrop-blur-xl rounded-[20px] text-left space-y-3 transition-all duration-400 cursor-pointer group relative overflow-hidden border ${
                     theme === 'dark'
-                      ? 'bg-slate-900/40 border-white/5 hover:border-neon-lime/30 dark:hover:shadow-[0_0_15px_rgba(158,255,51,0.12)]'
-                      : 'bg-white/65 border-white/40 hover:border-[#2F69FF]/50 hover:shadow-[0_0_15px_rgba(47,105,255,0.12)]'
+                      ? isExpanded 
+                          ? 'bg-[#1A1D21] border-white/15 shadow-xl' 
+                          : 'bg-[#161A1D]/80 border-white/5 hover:border-white/15 hover:bg-[#1A1D21]'
+                      : isExpanded
+                          ? 'bg-white border-slate-300 shadow-xl'
+                          : 'bg-white/80 border-slate-200 hover:border-[#2F69FF]/40 hover:bg-white hover:shadow-lg'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-0.5">
-                      <h4 className={`text-[12px] font-black tracking-tight leading-tight transition-colors ${
+                  <div className="flex items-start justify-between gap-3 relative z-10">
+                    <div className="space-y-1">
+                      <h4 className={`text-[13px] font-black tracking-tight leading-tight transition-colors ${
                         theme === 'dark' 
-                          ? 'text-slate-250 group-hover:text-neon-lime' 
-                          : 'text-[#1A1D20] group-hover:text-[#2F69FF]'
+                          ? 'text-slate-100 group-hover:text-neon-lime' 
+                          : 'text-slate-800 group-hover:text-[#2F69FF]'
                       }`}>
                         {topic.name}
                       </h4>
-                      <p className={`text-[9px] font-semibold font-mono ${theme === 'dark' ? 'text-slate-500' : 'text-[#6C737F]'}`}>
-                        Contains {topic.subtopics.length} key core subtopics
+                      <p className={`text-[10px] font-bold font-mono tracking-tight ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+                        {topic.subtopics.length} core subtopics
                       </p>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className={`text-[8.5px] font-mono font-black px-1.5 py-0.5 rounded-md border ${
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-[9px] font-mono font-black px-2 py-1 rounded-lg border ${
                         theme === 'dark'
-                          ? 'text-neon-lime bg-neon-lime/10 border-neon-lime/25'
+                          ? 'text-neon-lime bg-neon-lime/10 border-neon-lime/20'
                           : 'text-[#2F69FF] bg-[#2F69FF]/10 border-[#2F69FF]/20'
                       }`}>
                         {topicQuestionsCount} PYQs
                       </span>
-                      {isExpanded ? (
-                        <Icons.ChevronDown className={`w-3.5 h-3.5 shrink-0 ${theme === 'dark' ? 'text-neon-lime' : 'text-[#2F69FF]'}`} />
-                      ) : (
-                        <Icons.ChevronRight className={`w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-all duration-200 shrink-0 ${
-                          theme === 'dark' ? 'text-slate-400 group-hover:text-neon-lime' : 'text-[#6C737F] group-hover:text-[#2F69FF]'
-                        }`} />
-                      )}
+                      <div className={`p-1.5 rounded-full transition-colors ${theme === 'dark' ? 'bg-white/5 group-hover:bg-white/10' : 'bg-slate-100 group-hover:bg-slate-200'}`}>
+                        {isExpanded ? (
+                          <Icons.ChevronDown className={`w-3.5 h-3.5 shrink-0 ${theme === 'dark' ? 'text-neon-lime' : 'text-[#2F69FF]'}`} />
+                        ) : (
+                          <Icons.ChevronRight className={`w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-all duration-200 shrink-0 ${
+                            theme === 'dark' ? 'text-slate-400 group-hover:text-neon-lime' : 'text-slate-400 group-hover:text-[#2F69FF]'
+                          }`} />
+                        )}
+                      </div>
                     </div>
                   </div>
 
                   {/* Subtopics interactive tags list */}
                   {!isExpanded && (
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-1.5 relative z-10">
                       {topic.subtopics.map((sub) => (
                         <span
                           key={sub}
-                          className={`text-[8px] font-bold backdrop-blur-xs px-2 py-0.5 rounded border ${
+                          className={`text-[9px] font-bold px-2 py-1 rounded-md border transition-colors ${
                             theme === 'dark'
-                              ? 'text-slate-400 bg-[#1C2024] border-white/5'
-                              : 'text-[#6C737F] bg-white/50 border-white/30'
+                              ? 'text-slate-400 bg-black/20 border-white/5 group-hover:border-white/10'
+                              : 'text-slate-500 bg-slate-50 border-slate-200 group-hover:border-slate-300'
                           }`}
                         >
                           {sub}
@@ -378,45 +385,45 @@ export default function HomeView({
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
-                      className={`pt-3 border-t space-y-2 relative z-10 ${theme === 'dark' ? 'border-white/5' : 'border-slate-100'}`}
+                      className={`pt-4 mt-2 border-t space-y-2.5 relative z-10 ${theme === 'dark' ? 'border-white/10' : 'border-slate-100'}`}
                       onClick={(e) => e.stopPropagation()} // Prevent double toggle
                     >
-                      <span className="text-[9px] text-slate-500 dark:text-slate-450 uppercase tracking-widest font-mono font-black block mb-2">
+                      <span className={`text-[10px] uppercase tracking-widest font-mono font-black block mb-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-400'}`}>
                         Select Subtopic Unit to Practice:
                       </span>
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         {topic.subtopics.map((sub) => (
                           <motion.div
-                            whileHover={{ scale: 1.015 }}
-                            whileTap={{ scale: 0.985 }}
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
                             key={sub}
                             onClick={() => {
                               onSelectSubtopic?.(activeSubjectTab, sub, 'mixed', true, false);
                               onNavigate('quiz');
                             }}
-                            className={`p-2.5 border rounded-xl transition-all flex items-center justify-between cursor-pointer group/item ${
+                            className={`p-3 border rounded-[14px] transition-all flex items-center justify-between cursor-pointer group/item ${
                               theme === 'dark'
-                                ? 'bg-slate-950/40 hover:bg-neon-lime/5 border-white/5 dark:hover:border-neon-lime/20'
-                                : 'bg-white/55 hover:bg-[#2F69FF]/5 border-white/40 hover:border-[#2F69FF]/20'
+                                ? 'bg-black/20 hover:bg-neon-lime/10 border-white/5 hover:border-neon-lime/30'
+                                : 'bg-slate-50 hover:bg-[#2F69FF]/5 border-slate-200 hover:border-[#2F69FF]/30 hover:shadow-sm'
                             }`}
                           >
-                            <span className={`text-[11px] font-bold transition-colors ${
+                            <span className={`text-[12px] font-bold transition-colors ${
                               theme === 'dark'
                                 ? 'text-slate-200 group-hover/item:text-neon-lime'
-                                : 'text-[#1A1D20] group-hover/item:text-[#2F69FF]'
+                                : 'text-slate-700 group-hover/item:text-[#2F69FF]'
                             }`}>
                               {sub}
                             </span>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className={`text-[8px] font-bold opacity-0 group-hover/item:opacity-100 transition-opacity ${
+                            <div className="flex items-center gap-2 shrink-0 bg-white/5 dark:bg-black/20 px-2 py-1 rounded-full group-hover/item:bg-transparent">
+                              <span className={`text-[9px] font-bold opacity-0 group-hover/item:opacity-100 transition-opacity uppercase tracking-wider ${
                                 theme === 'dark' ? 'text-neon-lime' : 'text-[#2F69FF]'
                               }`}>
-                                Start Unit
+                                Start
                               </span>
-                              <Icons.Play className={`w-3 h-3 transform group-hover/item:scale-110 transition-all ${
+                              <Icons.Play className={`w-3.5 h-3.5 transform group-hover/item:translate-x-0.5 transition-all ${
                                 theme === 'dark'
-                                  ? 'text-slate-400 group-hover/item:text-neon-lime'
-                                  : 'text-[#6C737F] group-hover/item:text-[#2F69FF]'
+                                  ? 'text-slate-500 group-hover/item:text-neon-lime'
+                                  : 'text-slate-400 group-hover/item:text-[#2F69FF]'
                               }`} />
                             </div>
                           </motion.div>
