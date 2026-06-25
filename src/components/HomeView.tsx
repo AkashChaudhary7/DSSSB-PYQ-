@@ -187,6 +187,17 @@ export default function HomeView({
     };
   }, [attempts, currentExamConfig]);
 
+  const daysLeft = useMemo(() => {
+    if (!currentExamConfig || !currentExamConfig.targetDate) return null;
+    const target = new Date(currentExamConfig.targetDate);
+    const today = new Date();
+    target.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    const diffTime = target.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  }, [currentExamConfig]);
+
   const handleSelectExamPath = (examId: string) => {
     onChangeExam(examId);
     try {
@@ -244,17 +255,29 @@ export default function HomeView({
             <h2 className="text-[15px] font-black tracking-tight flex items-center gap-2 font-display">
               Hello, {userProfile?.displayName || 'Scholar'} <span className="animate-pulse">👋</span>
             </h2>
-            <div className="flex items-center gap-1.5">
-              <span className={`text-[9px] font-mono font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-blue-200'}`}>Target Goal:</span>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowPathSelector(true)}
-                className="text-[11px] font-extrabold text-amber-300 hover:text-amber-200 underline decoration-amber-300/40 decoration-dotted underline-offset-4 transition-colors cursor-pointer flex items-center gap-1 leading-none"
-              >
-                <span>{currentExamConfig?.name || 'Loading goal...'}</span>
-                <Icons.ChevronDown className="w-3.5 h-3.5 text-amber-300" />
-              </motion.button>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[9px] font-mono font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-blue-200'}`}>Target Goal:</span>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowPathSelector(true)}
+                  className="text-[11px] font-extrabold text-amber-300 hover:text-amber-200 underline decoration-amber-300/40 decoration-dotted underline-offset-4 transition-colors cursor-pointer flex items-center gap-1 leading-none"
+                >
+                  <span>{currentExamConfig?.name || 'Loading goal...'}</span>
+                  <Icons.ChevronDown className="w-3.5 h-3.5 text-amber-300" />
+                </motion.button>
+              </div>
+
+              {daysLeft !== null && (
+                <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-sm border border-white/10 px-2.5 py-0.5 rounded-lg">
+                  <Icons.Calendar className="w-3 h-3 text-emerald-400 shrink-0" />
+                  <span className={`text-[9px] font-mono font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-350' : 'text-blue-100'}`}>Days Left:</span>
+                  <span className={`text-[10.5px] font-mono font-black ${daysLeft <= 15 ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`}>
+                    {daysLeft >= 0 ? daysLeft : 'Passed'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           
