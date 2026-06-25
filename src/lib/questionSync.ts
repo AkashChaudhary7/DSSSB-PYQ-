@@ -8,6 +8,7 @@ import {
   where, 
   orderBy, 
   limit, 
+  startAfter,
   writeBatch, 
   doc 
 } from 'firebase/firestore';
@@ -185,30 +186,69 @@ export async function syncQuestionsFromFirestore(selectedExams: string[]): Promi
     const newQuestions: Question[] = [];
     let currentLastSync = lastSync;
 
-    // Fetch bundles updated since last sync for selected exams
-    // Firestore has a maximum list length of 10 for 'in' operator, which is more than enough for selectedExams
-    const q = query(
-      collection(db, BUNDLES_COLLECTION),
-      where('examId', 'in', selectedExams),
-      where('updatedAt', '>', lastSync)
-    );
+    // Chunk selectedExams into size of 10 to comply with Firestore 'in' operator limits
+    const examChunks: string[][] = [];
+    for (let i = 0; i < selectedExams.length; i += 10) {
+      examChunks.push(selectedExams.slice(i, i + 10));
+    }
 
-    const snapshot = await getDocs(q);
-    snapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      if (data.updatedAt > currentLastSync) {
-        currentLastSync = data.updatedAt;
-      }
+    // Process each exam chunk with limit-based cursor pagination.
+    // BATCH_LIMIT of 5 bundles allows pulling up to 1000 questions per query page
+    // (since each bundle document holds up to 200 questions), ensuring highly efficient,
+    // budget-safe read operations and handling at least 200+ questions per batch.
+    const BATCH_LIMIT = 5;
 
-      if (data.questions && Array.isArray(data.questions)) {
-        for (const qObj of data.questions) {
-          newQuestions.push({
-            ...qObj,
-            source: qObj.source || 'Firestore Sync'
-          });
+    for (const chunk of examChunks) {
+      let lastVisible: any = null;
+      let hasMore = true;
+
+      while (hasMore) {
+        let q;
+        if (lastVisible) {
+          q = query(
+            collection(db, BUNDLES_COLLECTION),
+            where('examId', 'in', chunk),
+            where('updatedAt', '>', lastSync),
+            startAfter(lastVisible),
+            limit(BATCH_LIMIT)
+          );
+        } else {
+          q = query(
+            collection(db, BUNDLES_COLLECTION),
+            where('examId', 'in', chunk),
+            where('updatedAt', '>', lastSync),
+            limit(BATCH_LIMIT)
+          );
+        }
+
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) {
+          hasMore = false;
+          break;
+        }
+
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data() as any;
+          if (data.updatedAt > currentLastSync) {
+            currentLastSync = data.updatedAt;
+          }
+
+          if (data.questions && Array.isArray(data.questions)) {
+            for (const qObj of data.questions) {
+              newQuestions.push({
+                ...qObj,
+                source: qObj.source || 'Firestore Sync'
+              });
+            }
+          }
+        });
+
+        lastVisible = snapshot.docs[snapshot.docs.length - 1];
+        if (snapshot.docs.length < BATCH_LIMIT) {
+          hasMore = false;
         }
       }
-    });
+    }
 
     if (newQuestions.length > 0) {
       // Store in local IndexedDB cache
