@@ -34,19 +34,29 @@ import { UserProfile, Badge, QuizAttempt, BookmarkedQuestion, LeaderboardEntry, 
 
 // Configuration from firebase-applet-config.json
 const firebaseConfig = {
-  apiKey: "AIzaSyCKlicxiIS7BCC1d95n_zCXdWGhmfCiT7c",
-  authDomain: "authentic-machine-rcf5x.firebaseapp.com",
-  projectId: "authentic-machine-rcf5x",
-  storageBucket: "authentic-machine-rcf5x.firebasestorage.app",
-  messagingSenderId: "13354836919",
-  appId: "1:13354836919:web:512c3c22e4b433ed7afe32"
-};
+ <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
 
-const databaseId = "ai-studio-a27adeb9-5185-4392-84a0-bab23bf35886";
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyCu_o_ZXv_LnmeXugJaokpCM7X9Q5mqb8U",
+    authDomain: "at-pyq.firebaseapp.com",
+    projectId: "at-pyq",
+    storageBucket: "at-pyq.firebasestorage.app",
+    messagingSenderId: "439854761860",
+    appId: "1:439854761860:web:3b57423bcf28c3a36c3fd1",
+    measurementId: "G-40CSGHR8N5"
+  };
 
-export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = initializeFirestore(app, {}, databaseId);
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
 
 // Core initial badges
 export const AVAILABLE_BADGES: Omit<Badge, 'unlockedAt'>[] = [
