@@ -5,6 +5,7 @@ export const EXAMS_PRESET: ExamConfig[] = [
     id: 'dsssb_tgt_cs',
     name: 'DSSSB TGT CS',
     targetScore: 130,
+    targetDate: '2026-10-15',
     subjects: [
       {
         name: 'General Studies (GS)',
@@ -75,6 +76,7 @@ export const EXAMS_PRESET: ExamConfig[] = [
     id: 'dsssb_it',
     name: 'DSSSB IT',
     targetScore: 130,
+    targetDate: '2026-11-20',
     subjects: [
       {
         name: 'General Studies',
