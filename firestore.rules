@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if (request.auth != null && request.auth.uid == userId) || (userId >= 'STUDENT-' && userId < 'STUDENT-~');
+    }
+    match /users/{userId}/{document=**} {
+      allow read, write: if (request.auth != null && request.auth.uid == userId) || (userId >= 'STUDENT-' && userId < 'STUDENT-~');
+    }
+    match /leaderboard/{userId} {
+      allow read: if true;
+      allow write: if (request.auth != null && request.auth.uid == userId) || (userId >= 'STUDENT-' && userId < 'STUDENT-~');
+    }
+    match /questions/{questionId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /question_bundles/{bundleId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
