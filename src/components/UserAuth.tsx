@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   auth, 
   setupUserProfile
@@ -11,7 +11,8 @@ import {
 import { 
   signOut,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithRedirect,
+  getRedirectResult
 } from 'firebase/auth';
 import * as Icons from 'lucide-react';
 import { motion } from 'motion/react';
@@ -26,32 +27,45 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    // Check for redirect result on mount
+    setLoading(true);
+    getRedirectResult(auth).then((result) => {
+      if (result?.user) {
+        setupUserProfile(result.user, result.user.displayName || 'Google User').then(() => {
+          onAuthChanged();
+        });
+      }
+      setLoading(false);
+    }).catch((err: any) => {
+      console.error("Redirect auth error:", err);
+      if (err.code === 'auth/operation-not-allowed') {
+        setError('Google Sign-In is restricted. Please enable Google provider in Firebase Console.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError('Domain not authorized. Please add this app URL to your Firebase Console -> Authentication -> Settings -> Authorized domains.');
+      } else {
+        setError(err.message || 'Google sign-in failed.');
+      }
+      setLoading(false);
+    });
+  }, [onAuthChanged]);
+
   const handleGoogleAuth = async () => {
     setError(null);
     setLoading(true);
     try {
       const provider = new GoogleAuthProvider();
-      try {
-        const result = await signInWithPopup(auth, provider);
-        await setupUserProfile(result.user, result.user.displayName || 'Google User');
-        onAuthChanged();
-      } catch (err: any) {
-        if (err.code === 'auth/internal-error' || err.code === 'auth/popup-blocked') {
-          // Fallback to redirect on mobile/iframes
-          const { signInWithRedirect } = await import('firebase/auth');
-          await signInWithRedirect(auth, provider);
-        } else {
-          throw err;
-        }
-      }
+      await signInWithRedirect(auth, provider);
+      // The page will redirect away here, so we do not turn off loading state
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/operation-not-allowed') {
-        setError('Google Sign-In is restricted by AI Studio. Please use Email/Password.');
-      } else if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        setError('Google Sign-In is restricted. Please enable Google provider in Firebase Console.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError('Domain not authorized. Please add this app URL to your Firebase Console -> Authentication -> Settings -> Authorized domains.');
+      } else {
         setError(err.message || 'Google sign-in failed.');
       }
-    } finally {
       setLoading(false);
     }
   };
