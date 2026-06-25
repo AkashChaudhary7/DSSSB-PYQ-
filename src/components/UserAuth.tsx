@@ -31,9 +31,19 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
     setLoading(true);
     try {
       const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      await setupUserProfile(result.user, result.user.displayName || 'Google User');
-      onAuthChanged();
+      try {
+        const result = await signInWithPopup(auth, provider);
+        await setupUserProfile(result.user, result.user.displayName || 'Google User');
+        onAuthChanged();
+      } catch (err: any) {
+        if (err.code === 'auth/internal-error' || err.code === 'auth/popup-blocked') {
+          // Fallback to redirect on mobile/iframes
+          const { signInWithRedirect } = await import('firebase/auth');
+          await signInWithRedirect(auth, provider);
+        } else {
+          throw err;
+        }
+      }
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/operation-not-allowed') {
