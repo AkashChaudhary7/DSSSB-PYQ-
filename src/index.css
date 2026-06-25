@@ -81,7 +81,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Display headings */
+/* Hide scrollbar for a cleaner look when overflow-x is used */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
 }
