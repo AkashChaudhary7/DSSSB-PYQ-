@@ -126,43 +126,58 @@ export async function syncQuestionsFromFirestore(selectedExams: string[]): Promi
   }
 
   const lastSync = localStorage.getItem(LAST_SYNC_KEY) || '1970-01-01T00:00:00.000Z';
-  const currentSyncTime = new Date().toISOString();
   const pathForList = QUESTIONS_COLLECTION;
 
   try {
-    // Single-field index query on 'exam' to avoid missing composite index errors.
-    // Loads in moderate chunks to protect limits and syncs only those exams chosen.
-    const q = query(
-      collection(db, QUESTIONS_COLLECTION),
-      where('exam', 'in', selectedExams),
-      limit(250)
-    );
+    let newQuestions: Question[] = [];
+    let currentLastSync = lastSync;
+    
+    // We can fetch in chunks to avoid hitting read limits heavily at once
+    let hasMore = true;
+    let chunksFetched = 0;
+    
+    while (hasMore && chunksFetched < 5) {
+      const q = query(
+        collection(db, QUESTIONS_COLLECTION),
+        where('updatedAt', '>', currentLastSync),
+        orderBy('updatedAt', 'asc'),
+        limit(100)
+      );
 
-    const snapshot = await getDocs(q);
-    const newQuestions: Question[] = [];
+      const snapshot = await getDocs(q);
+      let fetchedCount = 0;
 
-    snapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      const updatedAt = data.updatedAt || '1970-01-01T00:00:00.000Z';
-      
-      // Filter locally for incremental updates to save write overhead
-      if (updatedAt > lastSync) {
-        newQuestions.push({
-          id: docSnap.id,
-          topic: data.topic,
-          subtopic: data.subtopic,
-          difficulty: data.difficulty,
-          text: data.text,
-          options: data.options,
-          correctIndex: data.correctIndex,
-          explanation: data.explanation,
-          source: data.source || 'Firestore Sync',
-          isCustom: true,
-          exam: data.exam,
-          part: data.part
-        } as Question);
+      snapshot.forEach((docSnap) => {
+        fetchedCount++;
+        const data = docSnap.data();
+        if (data.updatedAt > currentLastSync) {
+          currentLastSync = data.updatedAt; // update to the latest we saw
+        }
+        
+        // Filter locally for exams
+        if (selectedExams.includes(data.exam)) {
+          newQuestions.push({
+            id: docSnap.id,
+            topic: data.topic,
+            subtopic: data.subtopic,
+            difficulty: data.difficulty,
+            text: data.text,
+            options: data.options,
+            correctIndex: data.correctIndex,
+            explanation: data.explanation,
+            source: data.source || 'Firestore Sync',
+            isCustom: true,
+            exam: data.exam,
+            part: data.part
+          } as Question);
+        }
+      });
+
+      if (fetchedCount < 100) {
+        hasMore = false;
       }
-    });
+      chunksFetched++;
+    }
 
     if (newQuestions.length > 0) {
       // Store in local IndexedDB cache
@@ -170,8 +185,8 @@ export async function syncQuestionsFromFirestore(selectedExams: string[]): Promi
       console.log(`Synchronized ${newQuestions.length} new questions from Firestore into IndexedDB cache.`);
     }
 
-    // Update the last sync timestamp to the current sync time
-    localStorage.setItem(LAST_SYNC_KEY, currentSyncTime);
+    // Update the last sync timestamp to the highest synced time
+    localStorage.setItem(LAST_SYNC_KEY, currentLastSync);
     return newQuestions;
   } catch (error) {
     // Fallback gracefully on query failures (e.g. if indexes are still building)
