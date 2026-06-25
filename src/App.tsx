@@ -475,6 +475,7 @@ export default function App() {
 
   const handleAuthChanged = () => {
     syncLocalState();
+    setShowAuthScreen(false);
   };
 
 
@@ -649,11 +650,17 @@ export default function App() {
 
             <button
               onClick={() => setShowAuthScreen(!showAuthScreen)}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900 hover:bg-slate-150 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 cursor-pointer transition-colors"
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900 hover:bg-slate-150 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 cursor-pointer transition-colors overflow-hidden"
               title="Toggle Account Access"
               id="global-auth-toggle-btn"
             >
-              <Icons.User className="w-4 h-4 text-blue-600 dark:text-indigo-400" />
+              {currentUser ? (
+                <div className="w-4.5 h-4.5 rounded-full bg-blue-100 dark:bg-indigo-900/60 flex items-center justify-center text-[10px] font-bold text-blue-700 dark:text-indigo-300">
+                  {userProfile?.displayName?.charAt(0).toUpperCase() || currentUser.email?.charAt(0).toUpperCase() || 'U'}
+                </div>
+              ) : (
+                <Icons.User className="w-4 h-4 text-blue-600 dark:text-indigo-400" />
+              )}
             </button>
           </div>
         </header>
