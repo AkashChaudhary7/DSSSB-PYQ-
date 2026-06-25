@@ -585,7 +585,7 @@ export default function App() {
               <Icons.GraduationCap className="w-4 h-4 text-blue-600 dark:text-indigo-400 font-bold" />
             </div>
             <div className="flex flex-col text-left">
-              <h1 className="text-xs font-black text-slate-900 dark:text-slate-100 tracking-tight leading-none uppercase font-display">AT Mocks</h1>
+              <h1 className="text-xs font-black text-slate-900 dark:text-slate-100 tracking-tight leading-none uppercase font-display">AT PYQ</h1>
               <span className="text-[8px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 leading-none font-bold">by Akash Chaudhary</span>
             </div>
           </div>
@@ -618,7 +618,7 @@ export default function App() {
               {adminUnlocked ? (
                 <div className="flex items-center gap-1">
                   <Icons.ShieldAlert className="w-4 h-4 text-amber-400 animate-bounce" />
-                  <span className="text-[9px] font-black uppercase tracking-wider font-mono">Staff</span>
+                  <span className="text-[9px] font-black uppercase tracking-wider font-mono"></span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1">
