@@ -272,7 +272,7 @@ export default function HomeView({
               {daysLeft !== null && (
                 <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-sm border border-white/10 px-2.5 py-0.5 rounded-lg">
                   <Icons.Calendar className="w-3 h-3 text-emerald-400 shrink-0" />
-                  <span className={`text-[9px] font-mono font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-350' : 'text-blue-100'}`}>Days Left:</span>
+                  <span className={`text-[9px] font-mono font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-350' : 'text-blue-100'}`}>Days:</span>
                   <span className={`text-[10.5px] font-mono font-black ${daysLeft <= 15 ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`}>
                     {daysLeft >= 0 ? daysLeft : 'Passed'}
                   </span>
