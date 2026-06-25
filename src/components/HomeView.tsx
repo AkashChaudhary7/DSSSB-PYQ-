@@ -143,6 +143,50 @@ export default function HomeView({
     return counts;
   }, [questionPool, subjectsList, currentExam]);
 
+  const mockAverageStats = useMemo(() => {
+    if (!currentExamConfig) return null;
+    
+    // Filter attempts that are mock exams and match the current exam config.
+    const examMocks = attempts.filter(a => a.isMockExam === true);
+    const targetScore = currentExamConfig.targetScore || 100;
+
+    if (examMocks.length === 0) {
+      return {
+        averageScore: 0,
+        targetScore,
+        progressPct: 0,
+        count: 0
+      };
+    }
+
+    const sortedMocks = [...examMocks].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const last7Mocks = sortedMocks.slice(0, 7);
+    
+    let totalScore = 0;
+    const negativeMarking = currentExamConfig.rules.negativeMarking || 0;
+    
+    last7Mocks.forEach(m => {
+      let correct = 0;
+      let wrong = 0;
+      m.questions.forEach(q => {
+          if (q.isCorrect) correct++;
+          else if (q.selectedOptionIndex !== -1) wrong++;
+      });
+      const score = correct - (wrong * Math.abs(negativeMarking));
+      totalScore += score;
+    });
+    
+    const averageScore = Math.max(0, Math.round((totalScore / last7Mocks.length) * 10) / 10);
+    const progressPct = Math.min(100, Math.round((averageScore / targetScore) * 100));
+
+    return {
+      averageScore,
+      targetScore,
+      progressPct,
+      count: last7Mocks.length
+    };
+  }, [attempts, currentExamConfig]);
+
   const handleSelectExamPath = (examId: string) => {
     onChangeExam(examId);
     try {
@@ -237,6 +281,50 @@ export default function HomeView({
             <span className="text-[13px] font-black font-mono tracking-tight mt-1 block">{overallAccuracy}<span className="text-[10px] opacity-70">%</span></span>
           </div>
         </div>
+
+        {/* Mock Exam Target Progress */}
+        {mockAverageStats && (
+          <div className="mt-5 pt-4 border-t border-white/10 relative z-10 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between text-[10px] font-bold font-mono tracking-widest uppercase">
+              <div className="flex items-center gap-1.5">
+                <Icons.Target className={`w-3.5 h-3.5 ${theme === 'dark' ? 'text-neon-lime' : 'text-amber-300'}`} />
+                <span className={theme === 'dark' ? 'text-slate-300' : 'text-blue-100'}>Target</span>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className={`text-[13px] font-black ${theme === 'dark' ? 'text-white' : 'text-white'}`}>{mockAverageStats.averageScore}</span>
+                <span className="text-[9px] opacity-70">/ {mockAverageStats.targetScore}</span>
+              </div>
+            </div>
+            
+            <div className="relative">
+              <div className={`w-full ${theme === 'dark' ? 'bg-black/50' : 'bg-black/20'} rounded-full h-2 overflow-hidden shadow-inner`}>
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(100, mockAverageStats.progressPct)}%` }}
+                  transition={{ duration: 1.2, ease: 'easeOut' }}
+                  className={`h-full rounded-full relative ${theme === 'dark' ? 'bg-gradient-to-r from-emerald-500 to-neon-lime' : 'bg-gradient-to-r from-blue-300 to-white'}`}
+                >
+                  <div className="absolute inset-0 bg-white/20 w-full h-full animate-pulse"></div>
+                </motion.div>
+              </div>
+              <motion.div 
+                initial={{ left: 0 }}
+                animate={{ left: `${Math.min(100, mockAverageStats.progressPct)}%` }}
+                transition={{ duration: 1.2, ease: 'easeOut' }}
+                className={`absolute top-1/2 -translate-y-1/2 -ml-1 w-2.5 h-2.5 rounded-full ${theme === 'dark' ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.9)]' : 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.7)]'}`}
+              />
+            </div>
+            
+            <div className="flex justify-between items-center text-[8.5px] font-medium opacity-80 uppercase tracking-widest font-mono mt-0.5">
+              <span className={mockAverageStats.progressPct >= 100 ? (theme === 'dark' ? 'text-neon-lime' : 'text-amber-300') : ''}>
+                {mockAverageStats.progressPct >= 100 ? 'Target Achieved!' : 'Keep Pushing'}
+              </span>
+              <span>
+                {mockAverageStats.progressPct >= 100 ? '100%' : `${mockAverageStats.progressPct}%`}
+              </span>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       {/* Global Search Component */}
