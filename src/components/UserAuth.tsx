@@ -15,7 +15,8 @@ import {
   signInWithPopup,
   getRedirectResult,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import * as Icons from 'lucide-react';
 import { motion } from 'motion/react';
@@ -28,6 +29,7 @@ interface UserAuthProps {
 
 export default function UserAuth({ onAuthChanged, currentUser, userProfile }: UserAuthProps) {
   const [error, setError] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -87,6 +89,29 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
     }
   };
 
+  const handlePasswordReset = async () => {
+    if (!email) {
+      setError('Please enter your email address in the field below first, then click "Forgot?" again.');
+      return;
+    }
+    setError(null);
+    setInfoMessage(null);
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setInfoMessage(`A password reset link has been successfully sent to ${email}. Please check your inbox and spam folder.`);
+    } catch (err: any) {
+      console.error('Password reset error:', err);
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-email') {
+        setError('No registered account was found with this email. Please check the email spelling or Sign Up instead.');
+      } else {
+        setError(err.message || 'Failed to send password reset email.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
@@ -98,6 +123,7 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
       return;
     }
     setError(null);
+    setInfoMessage(null);
     setLoading(true);
     try {
       if (isSignUp) {
@@ -111,7 +137,7 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/email-already-in-use') {
-        setError('This email is already registered.');
+        setError('This email is already registered! Please switch to "Sign In" below. If you forgot your password, enter your email and click the "Forgot?" link above.');
       } else if (err.code === 'auth/weak-password') {
         setError('Password is too weak.');
       } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
@@ -182,8 +208,19 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
             animate={{ opacity: 1, y: 0 }}
             className="p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25 text-rose-600 dark:text-rose-300 text-xs rounded-xl flex items-start gap-2 leading-relaxed shadow-sm"
           >
-            <Icons.AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+            <Icons.AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
             <span>{error}</span>
+          </motion.div>
+        )}
+
+        {infoMessage && (
+          <motion.div 
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/25 text-emerald-700 dark:text-emerald-300 text-xs rounded-xl flex items-start gap-2 leading-relaxed shadow-sm"
+          >
+            <Icons.CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+            <span>{infoMessage}</span>
           </motion.div>
         )}
 
@@ -261,7 +298,18 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 font-mono">Password</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">Password</label>
+              {!isSignUp && (
+                <button
+                  type="button"
+                  onClick={handlePasswordReset}
+                  className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-bold font-mono cursor-pointer"
+                >
+                  Forgot?
+                </button>
+              )}
+            </div>
             <input
               type="password"
               placeholder="••••••••"
@@ -298,6 +346,7 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
             onClick={() => {
               setIsSignUp(!isSignUp);
               setError(null);
+              setInfoMessage(null);
             }}
             disabled={loading}
             className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition-colors"
