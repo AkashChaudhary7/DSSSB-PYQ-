@@ -46,7 +46,7 @@ const databaseId = "ai-studio-a27adeb9-5185-4392-84a0-bab23bf35886";
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = initializeFirestore(app, { experimentalForceLongPolling: true }, databaseId);
+export const db = initializeFirestore(app, {}, databaseId);
 
 // Core initial badges
 export const AVAILABLE_BADGES: Omit<Badge, 'unlockedAt'>[] = [
