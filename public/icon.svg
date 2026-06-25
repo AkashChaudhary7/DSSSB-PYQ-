@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B0C0E" />
+      <stop offset="100%" stop-color="#161A1D" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+    <linearGradient id="accent-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1D4ED8" />
+      <stop offset="100%" stop-color="#1E3A8A" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000000" flood-opacity="0.6" />
+    </filter>
+  </defs>
+  
+  <rect width="512" height="512" fill="url(#bg)"/>
+  
+  <g filter="url(#glow)">
+    <path d="M256 96 L64 200 L256 304 L448 200 Z" fill="url(#accent)"/>
+    <path d="M112 250 L112 376 C112 376 180 432 256 432 C332 432 400 376 400 376 L400 250 L256 328 Z" fill="url(#accent-dark)"/>
+    <text x="256" y="225" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="76" fill="#ffffff" text-anchor="middle" letter-spacing="2">AT</text>
+    <text x="256" y="380" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="42" fill="#E2E8F0" text-anchor="middle" letter-spacing="4">PYQ</text>
+  </g>
+</svg>
