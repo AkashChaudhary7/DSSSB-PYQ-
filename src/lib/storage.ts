@@ -4,8 +4,6 @@
  */
 
 import { Question, QuizAttempt, BookmarkedQuestion, WrongQuestion, ExamConfig } from '../types';
-import { DEFAULT_QUESTIONS } from '../data/defaultQuestions';
-import { DSSSB_DEFAULT_QUESTIONS } from '../data/dsssbDefaultQuestions';
 import { EXAMS_PRESET } from '../data/examsPreset';
 import { auth, addFirestoreBookmark, removeFirestoreBookmark, db, addFirestoreWrongQuestion, removeFirestoreWrongQuestion } from './firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -98,10 +96,10 @@ export function getAllQuestions(): Question[] {
   try {
     const customStr = localStorage.getItem(CUSTOM_QUESTIONS_KEY);
     const customQuestions: Question[] = customStr ? JSON.parse(customStr) : [];
-    return [...DEFAULT_QUESTIONS, ...DSSSB_DEFAULT_QUESTIONS, ...customQuestions];
+    return [...customQuestions];
   } catch (e) {
     console.error('Failed to parse custom questions:', e);
-    return [...DEFAULT_QUESTIONS, ...DSSSB_DEFAULT_QUESTIONS];
+    return [];
   }
 }
 
