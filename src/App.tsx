@@ -172,48 +172,7 @@ export default function App() {
   // Subtopic parameter to pass to generator
   const [generatorPreFill, setGeneratorPreFill] = useState<string>('');
 
-  // Swipe Handlers for mobile navigation
-  const touchStartX = useRef<number | null>(null);
-  const touchEndX = useRef<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
-  const touchEndY = useRef<number | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.targetTouches[0].clientX;
-    touchStartY.current = e.targetTouches[0].clientY;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.targetTouches[0].clientX;
-    touchEndY.current = e.targetTouches[0].clientY;
-  };
-
-  const handleTouchEnd = () => {
-    if (touchStartX.current === null || touchEndX.current === null || touchStartY.current === null || touchEndY.current === null) return;
-    const diffX = touchStartX.current - touchEndX.current;
-    const diffY = Math.abs(touchStartY.current - touchEndY.current);
-    
-    // Swipe threshold (e.g., 60px) and check if horizontal swipe is dominant
-    if (Math.abs(diffX) > 60 && Math.abs(diffX) > diffY) {
-      const viewsInOrder: MainView[] = ['roadmap', 'practice', 'home', 'analytics', 'bookmarks'];
-      const currentIdx = viewsInOrder.indexOf(view);
-      
-      if (currentIdx !== -1) {
-        if (diffX > 0 && currentIdx < viewsInOrder.length - 1) {
-          // swiped left, go next
-          setView(viewsInOrder[currentIdx + 1]);
-        } else if (diffX < 0 && currentIdx > 0) {
-          // swiped right, go prev
-          setView(viewsInOrder[currentIdx - 1]);
-        }
-      }
-    }
-    
-    touchStartX.current = null;
-    touchEndX.current = null;
-    touchStartY.current = null;
-    touchEndY.current = null;
-  };
+  // Swipe Handlers for mobile navigation removed to prevent conflicts with scrolling
 
   // Dual auth and state configuration listener
   useEffect(() => {
@@ -667,9 +626,6 @@ export default function App() {
         <main 
           className="flex-1 p-4 overflow-y-auto bg-transparent relative" 
           id="main-view-container"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
         >
           
           {/* Admin Password Prompt Overlay Modal */}
