@@ -33,7 +33,8 @@ import {
   setupUserProfile, 
   getUserAttempts, 
   getUserBookmarks,
-  getUserWrongQuestions
+  getUserWrongQuestions,
+  runDiagnosticLogs
 } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import * as Icons from 'lucide-react';
@@ -75,6 +76,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [firestoreSyncError, setFirestoreSyncError] = useState<string | null>(null);
 
   // Local Guest states (or default fallbacks)
   const [localPoints, setLocalPoints] = useState<number>(() => {
@@ -218,6 +220,10 @@ export default function App() {
       setCurrentUser(user);
       if (user) {
         setAuthLoading(true);
+        setFirestoreSyncError(null);
+        // Fire diagnostic logs to verify Firestore document existence & permissions
+        runDiagnosticLogs(user).catch(err => console.error('[Diagnostic Error]:', err));
+
         try {
           const profile = await setupUserProfile(user);
           setUserProfile(profile);
@@ -251,14 +257,21 @@ export default function App() {
             if (fbWrongQs.length > 0) saveAllWrongQuestions(fbWrongQs);
           }
           
-          syncLocalState();
-        } catch (e) {
-          console.error("Firebase sync error on login: ", e);
+          await syncLocalState();
+        } catch (e: any) {
+          console.error("Firebase initial sync error on login: ", e);
+          const msg = e?.message || String(e);
+          if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('auth') || e?.code === 'permission-denied') {
+            setFirestoreSyncError("Cloud Database permissions issue detected. Please verify your Firestore security rules, connection status, or account permissions.");
+          } else {
+            setFirestoreSyncError("Subtle cloud sync interruption. Running in local offline mode; some cloud updates may not be loaded.");
+          }
         } finally {
           setAuthLoading(false);
         }
       } else {
         setUserProfile(null);
+        setFirestoreSyncError(null);
         setAuthLoading(false);
         syncLocalState();
       }
@@ -310,8 +323,12 @@ export default function App() {
         const uniqueCached = updatedCached.filter(q => !seenIds.has(q.id));
         setQuestionPool([...baseQuestions, ...uniqueCached]);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.warn("Background firestore incremental sync warning:", e);
+      const msg = e?.message || String(e);
+      if (currentUser && (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('auth') || e?.code === 'permission-denied')) {
+        setFirestoreSyncError("Cloud Database permissions issue detected. Please verify your Firestore security rules, connection status, or account permissions.");
+      }
     }
   };
 
@@ -883,6 +900,7 @@ export default function App() {
                     questionPool={questionPool}
                     theme={theme}
                     currentExam={currentExam}
+                    syncError={firestoreSyncError}
                     onReAttempt={(topic, subtopic, difficulty, isTimed, isMockExam) => {
                       setQuizConfig({
                         topic,
