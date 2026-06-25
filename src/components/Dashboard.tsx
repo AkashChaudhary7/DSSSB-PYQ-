@@ -20,6 +20,7 @@ interface DashboardProps {
   questionPool?: Question[];
   theme?: 'light' | 'dark';
   currentExam?: string;
+  syncError?: string | null;
   onReAttempt?: (
     topic: string,
     subtopic: string,
@@ -39,6 +40,7 @@ export default function Dashboard({
   questionPool = [],
   theme = 'light',
   currentExam = '',
+  syncError = null,
   onReAttempt
 }: DashboardProps) {
   const [showConfirmReset, setShowConfirmReset] = useState(false);
@@ -566,6 +568,25 @@ export default function Dashboard({
           </motion.button>
         )}
       </div>
+
+      {/* Cloud Sync Status / Connection Warning Banner */}
+      {syncError && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-5 p-3.5 rounded-xl border border-amber-500/20 dark:border-amber-500/10 bg-amber-500/10 dark:bg-amber-500/5 text-amber-800 dark:text-amber-300 flex items-start gap-2.5 shadow-sm"
+          id="firestore-sync-warning-banner"
+        >
+          <Icons.AlertCircle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+          <div className="text-left">
+            <h4 className="text-xs font-bold leading-tight uppercase tracking-wider font-mono">Sync Warning</h4>
+            <p className="text-[11px] mt-1 leading-relaxed opacity-90">{syncError}</p>
+            <p className="text-[10px] mt-1.5 font-medium leading-relaxed font-mono opacity-75 text-slate-500 dark:text-slate-400">
+              Troubleshooting: Check if you are signed in, check internet connection stability, or try refreshing the workspace.
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {filteredAttempts.length === 0 ? (
         <motion.div
