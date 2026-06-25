@@ -38,7 +38,7 @@ import {
 } from './lib/firebase';
 import { onAuthStateChanged, User, signInAnonymously } from 'firebase/auth';
 import * as Icons from 'lucide-react';
-import { getQuestionsCached } from './lib/indexedDB';
+import { getQuestionsCached, clearQuestionsCached } from './lib/indexedDB';
 import { syncQuestionsFromFirestore } from './lib/questionSync';
 import { syncGlobalData, forceCloudPull } from './lib/syncEngine';
 import { motion, AnimatePresence } from 'motion/react';
@@ -236,6 +236,12 @@ export default function App() {
   const handleTouchEnd = async () => {
     if (isPulling.current && pullProgress > 0.8 && !isSyncing) {
       setIsSyncing(true);
+      try {
+        const selectedExams = getSelectedExams();
+        await syncQuestionsFromFirestore(selectedExams);
+      } catch (err) {
+        console.warn('[Sync] Pull-to-refresh questions pull failed:', err);
+      }
       await syncLocalState();
       setTimeout(() => {
         setIsSyncing(false);
@@ -329,8 +335,15 @@ export default function App() {
   // Background anonymous auth sign-in for seamless Firestore rules compliance
   useEffect(() => {
     signInAnonymously(auth)
-      .then((cred) => {
+      .then(async (cred) => {
         console.log('[Auth] Logged in anonymously under Firebase UID:', cred.user.uid);
+        try {
+          const selectedExams = getSelectedExams();
+          await syncQuestionsFromFirestore(selectedExams);
+          await syncLocalState();
+        } catch (syncErr) {
+          console.warn('[Sync] Initial background questions pull failed:', syncErr);
+        }
       })
       .catch((err) => {
         console.warn('[Auth] Anonymous authentication failed (continuing local-only):', err);
@@ -338,7 +351,22 @@ export default function App() {
   }, []);
 
   const handleForceCloudPull = async () => {
-    // No-op in fast local offline mode
+    setAuthLoading(true);
+    setFirestoreSyncError(null);
+    try {
+      console.log('[Sync] Forcefully pulling questions from cloud database...');
+      const selectedExams = getSelectedExams();
+      localStorage.removeItem('cs_mcq_questions_last_sync_timestamp');
+      await clearQuestionsCached();
+      const syncedQs = await syncQuestionsFromFirestore(selectedExams);
+      console.log(`[Sync] Force cloud pull completed. Fetched ${syncedQs.length} questions.`);
+      await syncLocalState();
+    } catch (err: any) {
+      console.error('[Sync] Force cloud pull failed:', err);
+      setFirestoreSyncError(err?.message || String(err));
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const triggerBookmarkBadgeUnlock = () => {
