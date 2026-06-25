@@ -12,7 +12,10 @@ import {
   signOut,
   GoogleAuthProvider,
   signInWithRedirect,
-  getRedirectResult
+  signInWithPopup,
+  getRedirectResult,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword
 } from 'firebase/auth';
 import * as Icons from 'lucide-react';
 import { motion } from 'motion/react';
@@ -26,6 +29,10 @@ interface UserAuthProps {
 export default function UserAuth({ onAuthChanged, currentUser, userProfile }: UserAuthProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
 
   useEffect(() => {
     // Check for redirect result on mount
@@ -55,17 +62,66 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
     setLoading(true);
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithRedirect(auth, provider);
-      // The page will redirect away here, so we do not turn off loading state
+      try {
+        const result = await signInWithPopup(auth, provider);
+        await setupUserProfile(result.user, result.user.displayName || 'Google User');
+        onAuthChanged();
+      } catch (err: any) {
+        if (err.code === 'auth/popup-blocked' || err.code === 'auth/internal-error') {
+          // Fallback to redirect on mobile/iframes
+          await signInWithRedirect(auth, provider);
+        } else {
+          throw err;
+        }
+      }
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/operation-not-allowed') {
         setError('Google Sign-In is restricted. Please enable Google provider in Firebase Console.');
       } else if (err.code === 'auth/unauthorized-domain') {
         setError('Domain not authorized. Please add this app URL to your Firebase Console -> Authentication -> Settings -> Authorized domains.');
-      } else {
+      } else if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
         setError(err.message || 'Google sign-in failed.');
       }
+      setLoading(false);
+    }
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setError('Please fill in all fields.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password should be at least 6 characters.');
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      if (isSignUp) {
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        await setupUserProfile(result.user, displayName || email.split('@')[0]);
+        onAuthChanged();
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+        onAuthChanged();
+      }
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/email-already-in-use') {
+        setError('This email is already registered.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Password is too weak.');
+      } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setError('Invalid email or password.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('Email/Password provider is disabled in Firebase Console. Please enable Email/Password provider.');
+      } else {
+        setError(err.message || 'Authentication failed.');
+      }
+    } finally {
       setLoading(false);
     }
   };
@@ -108,14 +164,14 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
   }
 
   return (
-    <div className="bg-white/45 dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/10 rounded-2xl p-5 backdrop-blur-md">
+    <div className="bg-white/45 dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/10 rounded-2xl p-5 backdrop-blur-md max-w-sm mx-auto">
       <div className="text-center mb-4">
         <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-600 dark:text-neon-lime font-mono mb-1 block">Account Access</span>
         <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 font-sans">
-          Sign in to Sync Progress
+          {isSignUp ? 'Create your Account' : 'Sign In to Sync'}
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Save your progress, custom generated topics, bookmarks, and compete in standard arena leaderboards.
+          Save your progress, generated topics, bookmarks, and compete in the leaderboards.
         </p>
       </div>
 
@@ -131,19 +187,20 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
           </motion.div>
         )}
 
+        {/* Google Provider Button */}
         <motion.button
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.98 }}
           type="button"
           onClick={handleGoogleAuth}
           disabled={loading}
-          className="w-full py-3 bg-white dark:bg-[#202528] hover:bg-slate-50 dark:hover:bg-[#2A3035] text-slate-700 dark:text-white font-bold rounded-xl text-sm tracking-wider flex items-center justify-center gap-3 cursor-pointer shadow-sm border border-slate-200 dark:border-white/10 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+          className="w-full py-2.5 bg-white dark:bg-[#202528] hover:bg-slate-50 dark:hover:bg-[#2A3035] text-slate-700 dark:text-white font-bold rounded-xl text-xs tracking-wider flex items-center justify-center gap-2.5 cursor-pointer shadow-sm border border-slate-200 dark:border-white/10 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
         >
           {loading ? (
-            <Icons.Loader2 className="w-4.5 h-4.5 animate-spin text-slate-700 dark:text-white" />
+            <Icons.Loader2 className="w-4 h-4 animate-spin text-slate-700 dark:text-white" />
           ) : (
             <>
-              <svg className="w-4.5 h-4.5" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -161,10 +218,93 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              <span>Continue with Google</span>
+              <span>Google Sign-In</span>
             </>
           )}
         </motion.button>
+
+        {/* Divider */}
+        <div className="flex items-center my-3.5">
+          <div className="flex-grow border-t border-slate-200 dark:border-white/10"></div>
+          <span className="px-2.5 text-[9px] uppercase font-bold text-slate-400 dark:text-slate-500 font-mono">or email credentials</span>
+          <div className="flex-grow border-t border-slate-200 dark:border-white/10"></div>
+        </div>
+
+        {/* Email/Password Form */}
+        <form onSubmit={handleEmailAuth} className="space-y-3">
+          {isSignUp && (
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 font-mono">Your Name</label>
+              <input
+                type="text"
+                placeholder="eg. Alex Mercer"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                disabled={loading}
+                required={isSignUp}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-[#1E2226] border border-slate-200 dark:border-white/5 rounded-xl text-xs text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 transition-all"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 font-mono">Email Address</label>
+            <input
+              type="email"
+              placeholder="alex@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+              required
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-[#1E2226] border border-slate-200 dark:border-white/5 rounded-xl text-xs text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 font-mono">Password</label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              required
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-[#1E2226] border border-slate-200 dark:border-white/5 rounded-xl text-xs text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 transition-all"
+            />
+          </div>
+
+          <motion.button
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
+            type="submit"
+            disabled={loading}
+            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs tracking-wider uppercase font-mono flex items-center justify-center gap-1.5 cursor-pointer shadow-md disabled:opacity-75 disabled:cursor-not-allowed mt-4"
+          >
+            {loading ? (
+              <Icons.Loader2 className="w-4 h-4 animate-spin text-white" />
+            ) : (
+              <>
+                <Icons.Lock className="w-3.5 h-3.5" />
+                <span>{isSignUp ? 'Sign Up' : 'Sign In'}</span>
+              </>
+            )}
+          </motion.button>
+        </form>
+
+        {/* Form Toggle Link */}
+        <div className="text-center pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setError(null);
+            }}
+            disabled={loading}
+            className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition-colors"
+          >
+            {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+          </button>
+        </div>
       </div>
     </div>
   );
