@@ -836,7 +836,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
           className={`flex-1 whitespace-nowrap px-4 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${activeTab === 'upload' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
         >
           <Icons.Upload className={`w-4 h-4 ${activeTab === 'upload' ? 'text-indigo-200' : 'text-emerald-500'}`} />
-          <span>Subject Upload</span>
+          <span></span>
         </button>
 
         <button
@@ -848,7 +848,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
           className={`flex-1 whitespace-nowrap px-4 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${activeTab === 'upload_mock' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
         >
           <Icons.FileArchive className={`w-4 h-4 ${activeTab === 'upload_mock' ? 'text-indigo-200' : 'text-rose-500'}`} />
-          <span>Upload Full Mock</span>
+          <span>Full Mock</span>
         </button>
 
         <button
@@ -860,7 +860,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
           className={`flex-1 whitespace-nowrap px-4 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${activeTab === 'manage_exams' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
         >
           <Icons.Sliders className={`w-4 h-4 ${activeTab === 'manage_exams' ? 'text-indigo-200' : 'text-amber-500'}`} />
-          <span>Exams & Rules</span>
+          <span>Exams</span>
         </button>
       </div>
 
