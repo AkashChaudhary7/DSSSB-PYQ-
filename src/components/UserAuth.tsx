@@ -60,36 +60,25 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
 
   if (currentUser) {
     return (
-      <div className="p-4 bg-white/45 dark:bg-[#161A1D]/80 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center justify-between backdrop-blur-md">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-linear-to-tr from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-            {userProfile?.displayName?.charAt(0).toUpperCase() || currentUser.email?.charAt(0).toUpperCase() || 'U'}
-          </div>
-          <div className="min-w-0">
-            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
-              {userProfile?.displayName || 'Student Colleague'}
-            </h4>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate">{currentUser.email}</span>
-          </div>
+      <div className="bg-white/60 dark:bg-[#1A1D21]/90 border border-slate-200 dark:border-white/10 rounded-2xl p-4 backdrop-blur-xl flex flex-col items-center justify-center text-center shadow-lg">
+        <div className="w-12 h-12 bg-linear-to-tr from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-lg mb-3 shadow-md">
+          {userProfile?.displayName?.charAt(0).toUpperCase() || currentUser.email?.charAt(0).toUpperCase() || 'U'}
         </div>
+        <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 mb-1">
+          {userProfile?.displayName || 'Student'}
+        </h4>
+        <span className="text-[11px] text-slate-500 dark:text-slate-400 mb-4">{currentUser.email}</span>
         
-        <div className="flex items-center gap-2">
-          {userProfile && (
-            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-300 font-bold font-mono text-[10px] px-2 py-1 rounded-lg flex items-center gap-1">
-              <Icons.Trophy className="w-3 h-3 text-amber-500 dark:text-amber-400" />
-              <span>{userProfile.points} PTS</span>
-            </div>
-          )}
-          <button
-            onClick={handleLogout}
-            disabled={loading}
-            className="p-1.5 bg-slate-100 dark:bg-white/5 hover:bg-rose-500/10 border border-slate-200 dark:border-white/10 hover:border-rose-500/30 text-slate-500 dark:text-slate-400 hover:text-rose-500 rounded-lg cursor-pointer transition-colors"
-            title="Sign Out"
-            id="auth-signout-btn"
-          >
-            <Icons.LogOut className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <button
+          onClick={handleLogout}
+          disabled={loading}
+          className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
+          title="Sign Out"
+          id="auth-signout-btn"
+        >
+          <Icons.LogOut className="w-4 h-4" />
+          <span className="text-xs tracking-wider uppercase font-mono">Sign Out</span>
+        </button>
       </div>
     );
   }
@@ -102,7 +91,7 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
           Sign in to Sync Progress
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Save your points, custom generated topics, bookmarks, and compete in standard arena leaderboards.
+          Save your progress, custom generated topics, bookmarks, and compete in standard arena leaderboards.
         </p>
       </div>
 
