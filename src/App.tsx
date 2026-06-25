@@ -492,7 +492,7 @@ export default function App() {
 
   const handleAdminVerify = (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPasswordInput === 'dsssb123') {
+    if (adminPasswordInput === '124578') {
       setAdminUnlocked(true);
       try {
         localStorage.setItem('cs_mcq_admin_unlocked', 'true');
@@ -709,7 +709,7 @@ export default function App() {
                   <form onSubmit={handleAdminVerify} className="space-y-3">
                     <input
                       type="password"
-                      placeholder="Enter Password (dsssb123)"
+                      placeholder="Enter Password"
                       value={adminPasswordInput}
                       onChange={(e) => setAdminPasswordInput(e.target.value)}
                       className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-xs text-center font-mono outline-none focus:border-indigo-500 text-slate-250"
