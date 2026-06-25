@@ -14,6 +14,41 @@ const ATTEMPTS_KEY = 'cs_mcq_quiz_attempts';
 const BOOKMARKS_KEY = 'cs_mcq_bookmarks';
 const EXAMS_CONFIG_KEY = 'cs_mcq_exams_config';
 const SELECTED_EXAMS_KEY = 'cs_mcq_selected_exams';
+const ADMIN_ACTIVITY_KEY = 'cs_mcq_admin_activity';
+
+export interface AdminActivity {
+  id: string;
+  timestamp: string;
+  action: 'added' | 'edited';
+  exam: string;
+  subject: string;
+  subtopic: string;
+  count: number;
+}
+
+export function getAdminActivities(): AdminActivity[] {
+  try {
+    const raw = localStorage.getItem(ADMIN_ACTIVITY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function logAdminActivity(activity: Omit<AdminActivity, 'id' | 'timestamp'>): void {
+  try {
+    const activities = getAdminActivities();
+    const newActivity: AdminActivity = {
+      ...activity,
+      id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+      timestamp: new Date().toISOString()
+    };
+    const updated = [newActivity, ...activities].slice(0, 50); // Keep last 50
+    localStorage.setItem(ADMIN_ACTIVITY_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.error('Failed to log admin activity', e);
+  }
+}
 
 export function getExamsConfig(): ExamConfig[] {
   try {
