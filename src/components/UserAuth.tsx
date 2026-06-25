@@ -115,7 +115,7 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
       } else if (err.code === 'auth/weak-password') {
         setError('Password is too weak.');
       } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        setError('Invalid email or password.');
+        setError('Invalid email or password. If you do not have an account yet, please click "Don\'t have an account? Sign Up" below to create one.');
       } else if (err.code === 'auth/operation-not-allowed') {
         setError('Email/Password provider is disabled in Firebase Console. Please enable Email/Password provider.');
       } else {
