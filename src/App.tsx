@@ -169,6 +169,44 @@ export default function App() {
     }
   };
 
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [pullProgress, setPullProgress] = useState(0); // 0 to 1
+  const startY = useRef(0);
+  const isPulling = useRef(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const container = document.getElementById('main-view-container');
+    if (container && container.scrollTop === 0) {
+      startY.current = e.touches[0].clientY;
+      isPulling.current = true;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPulling.current || isSyncing) return;
+    const y = e.touches[0].clientY;
+    const diff = y - startY.current;
+    if (diff > 0) {
+      // Pull down
+      const progress = Math.min(diff / 100, 1);
+      setPullProgress(progress);
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (isPulling.current && pullProgress > 0.8 && !isSyncing) {
+      setIsSyncing(true);
+      await syncLocalState();
+      setTimeout(() => {
+        setIsSyncing(false);
+        setPullProgress(0);
+      }, 800); // little delay to show success
+    } else {
+      setPullProgress(0);
+    }
+    isPulling.current = false;
+  };
+
   // Subtopic parameter to pass to generator
   const [generatorPreFill, setGeneratorPreFill] = useState<string>('');
 
@@ -626,7 +664,25 @@ export default function App() {
         <main 
           className="flex-1 p-4 overflow-y-auto bg-transparent relative" 
           id="main-view-container"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
+          {/* Pull to Refresh Indicator */}
+          <motion.div 
+            className="absolute top-0 left-0 right-0 flex justify-center items-center z-50 pointer-events-none"
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ 
+              y: isSyncing ? 20 : pullProgress * 40 - 20, 
+              opacity: isSyncing ? 1 : pullProgress,
+              scale: isSyncing ? 1 : 0.8 + (pullProgress * 0.2)
+            }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          >
+            <div className={`p-2 rounded-full shadow-lg flex items-center justify-center ${theme === 'dark' ? 'bg-[#1A1D21] border border-white/10' : 'bg-white border border-slate-200'}`}>
+              <Icons.RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin text-blue-500' : 'text-slate-400'}`} />
+            </div>
+          </motion.div>
           
           {/* Admin Password Prompt Overlay Modal */}
           <AnimatePresence>
