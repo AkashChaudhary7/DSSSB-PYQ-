@@ -40,6 +40,7 @@ export interface ExamConfig {
   name: string;
   subjects: ExamSubject[];
   rules: ExamRule;
+  targetScore?: number;
 }
 
 export interface QuizAttempt {
