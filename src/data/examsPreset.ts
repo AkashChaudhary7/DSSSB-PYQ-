@@ -4,6 +4,7 @@ export const EXAMS_PRESET: ExamConfig[] = [
   {
     id: 'dsssb_tgt_cs',
     name: 'DSSSB TGT CS',
+    targetScore: 130,
     subjects: [
       {
         name: 'General Studies (GS)',
@@ -73,6 +74,7 @@ export const EXAMS_PRESET: ExamConfig[] = [
   {
     id: 'dsssb_it',
     name: 'DSSSB IT',
+    targetScore: 130,
     subjects: [
       {
         name: 'General Studies',
@@ -121,6 +123,7 @@ export const EXAMS_PRESET: ExamConfig[] = [
   {
     id: 'cet_xii',
     name: 'CET-XII',
+    targetScore: 105,
     subjects: [
       {
         name: 'Rajasthan GK',
@@ -177,6 +180,7 @@ export const EXAMS_PRESET: ExamConfig[] = [
   {
     id: 'cet_graduation',
     name: 'CET-GRADUATION',
+    targetScore: 105,
     subjects: [
       {
         name: 'Rajasthan Economy & Geography',
@@ -236,6 +240,7 @@ export const EXAMS_PRESET: ExamConfig[] = [
   {
     id: 'ras_prelims',
     name: 'RAS PRELIMS',
+    targetScore: 100,
     subjects: [
       {
         name: 'History & Culture of Rajasthan',
@@ -294,6 +299,7 @@ export const EXAMS_PRESET: ExamConfig[] = [
   {
     id: 'ras_mains',
     name: 'RAS MAINS',
+    targetScore: 60,
     subjects: [
       {
         name: 'General Studies I',
@@ -335,6 +341,7 @@ export const EXAMS_PRESET: ExamConfig[] = [
   {
     id: 'eo_ro',
     name: 'EO RO',
+    targetScore: 85,
     subjects: [
       {
         name: 'Rajasthan History & Geography',
