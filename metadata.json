@@ -1,6 +1,0 @@
-{
-  "name": "Computer Science MCQ Practice App",
-  "description": "Polished MCQ practice application with categorized quizzes, timed challenges, performance analytics, PDF exports, and AI-powered topic-based question generation.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
