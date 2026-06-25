@@ -131,6 +131,42 @@ export async function setupUserProfile(user: User, customName?: string): Promise
   return profile;
 }
 
+// Diagnostic helper to debug firebase access and profile issues live in the console
+export async function runDiagnosticLogs(user: User): Promise<void> {
+  console.log(`[Diagnostic] Starting Firebase diagnostics for user ${user.uid} (${user.email || 'no-email'})`);
+  
+  // 1. Check user document existence
+  try {
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      console.log(`[Diagnostic] SUCCESS: User document exists in users/${user.uid}. Data:`, userSnap.data());
+    } else {
+      console.log(`[Diagnostic] INFO: User document does NOT exist in users/${user.uid} yet (will be created on first profile setup).`);
+    }
+  } catch (err: any) {
+    console.error(`[Diagnostic] ERROR reading user document at users/${user.uid}:`, err.message || err);
+  }
+
+  // 2. Check attempts sub-collection
+  try {
+    const attemptsRef = collection(db, 'users', user.uid, 'attempts');
+    const attemptsSnap = await getDocs(query(attemptsRef, limit(1)));
+    console.log(`[Diagnostic] SUCCESS: Successfully read 'attempts' sub-collection. Found ${attemptsSnap.size} documents.`);
+  } catch (err: any) {
+    console.error(`[Diagnostic] ERROR reading 'attempts' sub-collection:`, err.message || err);
+  }
+
+  // 3. Check bookmarks sub-collection
+  try {
+    const bookmarksRef = collection(db, 'users', user.uid, 'bookmarks');
+    const bookmarksSnap = await getDocs(query(bookmarksRef, limit(1)));
+    console.log(`[Diagnostic] SUCCESS: Successfully read 'bookmarks' sub-collection. Found ${bookmarksSnap.size} documents.`);
+  } catch (err: any) {
+    console.error(`[Diagnostic] ERROR reading 'bookmarks' sub-collection:`, err.message || err);
+  }
+}
+
 // Fetch user profile
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   try {
