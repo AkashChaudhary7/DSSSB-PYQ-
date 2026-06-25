@@ -19,8 +19,8 @@ interface QuestionUploaderProps {
 }
 
 export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser, onLockAdmin }: QuestionUploaderProps) {
-  // Tabs: 'upload' or 'manage_exams'
-  const [activeTab, setActiveTab] = useState<'upload' | 'manage_exams'>('upload');
+  // Tabs: 'upload' | 'upload_mock' | 'manage_exams'
+  const [activeTab, setActiveTab] = useState<'upload' | 'upload_mock' | 'manage_exams'>('upload');
 
   // Live upload progress states
   const [isUploading, setIsUploading] = useState<boolean>(false);
@@ -71,6 +71,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
   const [selectedSubtopic, setSelectedSubtopic] = useState<string>('');
   const [customSubtopic, setCustomSubtopic] = useState<string>('');
   const [useCustomSubtopic, setUseCustomSubtopic] = useState<boolean>(false);
+  const [mockTitle, setMockTitle] = useState<string>('');
 
   const [fileName, setFileName] = useState<string | null>(null);
   const [parsedQuestions, setParsedQuestions] = useState<Question[]>([]);
@@ -469,23 +470,71 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
         allCombinedQuestions = [...allCombinedQuestions, ...parsed];
       }
 
-      const finalSubtopic = useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic;
-      if (!finalSubtopic) {
-        throw new Error("Please select or write a valid Subtopic classification!");
+      if (activeTab === 'upload_mock') {
+        const finalMockTitle = mockTitle.trim();
+        if (!finalMockTitle) {
+          throw new Error("Please enter a valid Mock Title (e.g., PYQ 2021)!");
+        }
+        if (!activeExamConfig) {
+          throw new Error("No exam configuration available.");
+        }
+        
+        let qIndex = 0;
+        const completedQuestions: Question[] = [];
+        
+        // Loop through subjects and assign according to their allotments
+        for (const subj of activeExamConfig.subjects) {
+          const allotment = activeExamConfig.rules.subjectAllotments[subj.name] || 0;
+          for (let i = 0; i < allotment && qIndex < allCombinedQuestions.length; i++) {
+            completedQuestions.push({
+              ...allCombinedQuestions[qIndex],
+              id: `uploaded-${Date.now()}-${qIndex}-${Math.floor(Math.random() * 10000)}`,
+              topic: subj.name,
+              subtopic: finalMockTitle,
+              exam: selectedExam,
+              part: 'B',
+              isCustom: true,
+              source: 'Mock Upload'
+            });
+            qIndex++;
+          }
+        }
+        
+        // If there are leftover questions, assign them to the last subject or just generally
+        while (qIndex < allCombinedQuestions.length) {
+           completedQuestions.push({
+              ...allCombinedQuestions[qIndex],
+              id: `uploaded-${Date.now()}-${qIndex}-${Math.floor(Math.random() * 10000)}`,
+              topic: activeExamConfig.subjects[activeExamConfig.subjects.length - 1]?.name || 'General',
+              subtopic: finalMockTitle,
+              exam: selectedExam,
+              part: 'B',
+              isCustom: true,
+              source: 'Mock Upload'
+            });
+            qIndex++;
+        }
+        
+        setParsedQuestions(completedQuestions);
+      } else {
+        const finalSubtopic = useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic;
+        if (!finalSubtopic) {
+          throw new Error("Please select or write a valid Subtopic classification!");
+        }
+
+        const completedQuestions: Question[] = allCombinedQuestions.map((q, idx) => ({
+          ...q,
+          id: `uploaded-${Date.now()}-${idx}-${Math.floor(Math.random() * 10000)}`,
+          topic: selectedSubject,
+          subtopic: finalSubtopic,
+          exam: selectedExam,
+          part: 'B',
+          isCustom: true,
+          source: 'User Upload'
+        }));
+
+        setParsedQuestions(completedQuestions);
       }
-
-      const completedQuestions: Question[] = allCombinedQuestions.map((q, idx) => ({
-        ...q,
-        id: `uploaded-${Date.now()}-${idx}-${Math.floor(Math.random() * 10000)}`,
-        topic: selectedSubject,
-        subtopic: finalSubtopic,
-        exam: selectedExam,
-        part: 'B',
-        isCustom: true,
-        source: 'User Upload'
-      }));
-
-      setParsedQuestions(completedQuestions);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to process the files. Make sure the structure and JSON parameters are valid.");
     }
@@ -698,73 +747,108 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
     <div className="space-y-4 text-slate-800 dark:text-slate-100 text-left">
       
       {/* Top Banner Control Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 dark:border-white/5 pb-2.5">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-500 dark:text-indigo-400">
-            <Icons.Settings className="w-4 h-4" />
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between border-b border-slate-200 dark:border-white/5 pb-3">
+        <div className="flex items-center justify-between w-full sm:w-auto gap-2">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-500 dark:text-indigo-400 shrink-0">
+              <Icons.Settings className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-[13px] sm:text-sm font-black uppercase tracking-tight text-slate-900 dark:text-slate-100">Admin Control</h2>
+              <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5 font-mono">Status: Secure Credentials Active</span>
+            </div>
           </div>
-          <div>
-            <h2 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-slate-100">Admin Control Center</h2>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5 font-mono">Status: Secure Credentials Active</span>
+
+          <div className="flex sm:hidden items-center gap-1.5 shrink-0">
+            {onLockAdmin && (
+              <button
+                onClick={onLockAdmin}
+                title="Lock Admin Control Center"
+                className="p-1.5 text-amber-600 dark:text-amber-300 hover:text-white bg-amber-500/10 border border-amber-500/20 rounded-lg hover:bg-amber-500 hover:text-slate-950 transition-all cursor-pointer flex items-center justify-center shrink-0"
+              >
+                <Icons.Lock className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button 
+              onClick={onBack}
+              title="Go Back"
+              className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 transition-colors cursor-pointer flex items-center justify-center shrink-0"
+            >
+              <Icons.ArrowLeft className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
-        {/* Real-time Firebase Sync Status Indicator */}
-        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono font-bold transition-all self-start sm:self-auto ${
-          firebaseStatus === 'syncing' 
-            ? 'bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse'
-            : firebaseStatus === 'offline'
-              ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
-              : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-        }`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${
+        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+          {/* Real-time Firebase Sync Status Indicator */}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono font-bold transition-all shrink-0 ${
             firebaseStatus === 'syncing' 
-              ? 'bg-amber-500'
+              ? 'bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse'
               : firebaseStatus === 'offline'
-                ? 'bg-rose-550 animate-ping'
-                : 'bg-emerald-500 animate-pulse'
-          }`} />
-          <span>
-            {firebaseStatus === 'syncing' 
-              ? 'Firebase: Syncing...' 
-              : firebaseStatus === 'offline' 
-                ? 'Firebase: Offline' 
-                : 'Firebase: Synced'}
-          </span>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {onLockAdmin && (
-            <button
-              onClick={onLockAdmin}
-              title="Lock Admin Control Center"
-              className="p-2 text-amber-600 dark:text-amber-300 hover:text-white bg-amber-500/10 border border-amber-500/20 rounded-lg hover:bg-amber-500 hover:text-slate-950 transition-all cursor-pointer flex items-center justify-center shrink-0"
+                ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+              firebaseStatus === 'syncing' 
+                ? 'bg-amber-500'
+                : firebaseStatus === 'offline'
+                  ? 'bg-rose-550 animate-ping'
+                  : 'bg-emerald-500 animate-pulse'
+            }`} />
+            <span className="whitespace-nowrap">
+              {firebaseStatus === 'syncing' 
+                ? 'Firebase: Syncing...' 
+                : firebaseStatus === 'offline' 
+                  ? 'Firebase: Offline' 
+                  : 'Firebase: Synced'}
+            </span>
+          </div>
+          
+          <div className="hidden sm:flex items-center gap-2 shrink-0">
+            {onLockAdmin && (
+              <button
+                onClick={onLockAdmin}
+                title="Lock Admin Control Center"
+                className="p-2 text-amber-600 dark:text-amber-300 hover:text-white bg-amber-500/10 border border-amber-500/20 rounded-lg hover:bg-amber-500 hover:text-slate-950 transition-all cursor-pointer flex items-center justify-center shrink-0"
+              >
+                <Icons.Lock className="w-4 h-4" />
+              </button>
+            )}
+            <button 
+              onClick={onBack}
+              title="Go Back"
+              className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 transition-colors cursor-pointer flex items-center justify-center shrink-0"
             >
-              <Icons.Lock className="w-4 h-4" />
+              <Icons.ArrowLeft className="w-4 h-4" />
             </button>
-          )}
-          <button 
-            onClick={onBack}
-            title="Go Back"
-            className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 transition-colors cursor-pointer flex items-center justify-center shrink-0"
-          >
-            <Icons.ArrowLeft className="w-4 h-4" />
-          </button>
+          </div>
         </div>
       </div>
 
       {/* Tab Selectors */}
-      <div className="flex gap-1.5 p-1 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-xl h-11 shrink-0">
+      <div className="flex gap-2 p-1.5 bg-slate-100/80 dark:bg-[#161A1D]/80 backdrop-blur-sm border border-slate-200 dark:border-white/10 rounded-xl overflow-x-auto hide-scrollbar">
         <button
           onClick={() => {
             setActiveTab('upload');
             setSuccessCount(0);
           }}
-          title="Upload Questions"
-          className={`flex-1 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${activeTab === 'upload' ? 'bg-indigo-650 text-white shadow' : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
+          title="Upload Subject Questions"
+          className={`flex-1 whitespace-nowrap px-4 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${activeTab === 'upload' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
         >
-          <Icons.Upload className="w-4 h-4 text-emerald-500" />
-          <span className="hidden sm:inline">Upload Questions</span>
+          <Icons.Upload className={`w-4 h-4 ${activeTab === 'upload' ? 'text-indigo-200' : 'text-emerald-500'}`} />
+          <span>Subject Upload</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('upload_mock');
+            setSuccessCount(0);
+          }}
+          title="Upload Full Mock (PYQ)"
+          className={`flex-1 whitespace-nowrap px-4 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${activeTab === 'upload_mock' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
+        >
+          <Icons.FileArchive className={`w-4 h-4 ${activeTab === 'upload_mock' ? 'text-indigo-200' : 'text-rose-500'}`} />
+          <span>Upload Full Mock</span>
         </button>
 
         <button
@@ -773,10 +857,10 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
             setSuccessCount(0);
           }}
           title="Configure Exams & Rules"
-          className={`flex-1 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${activeTab === 'manage_exams' ? 'bg-indigo-650 text-white shadow' : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
+          className={`flex-1 whitespace-nowrap px-4 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${activeTab === 'manage_exams' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
         >
-          <Icons.Sliders className="w-4 h-4 text-amber-500" />
-          <span className="hidden sm:inline">Configure Exams & Rules</span>
+          <Icons.Sliders className={`w-4 h-4 ${activeTab === 'manage_exams' ? 'text-indigo-200' : 'text-amber-500'}`} />
+          <span>Exams & Rules</span>
         </button>
       </div>
 
@@ -960,7 +1044,113 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
               <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1">
                 {parsedQuestions.map((q, idx) => (
                   <div key={idx} className="bg-white dark:bg-black/25 rounded-xl p-3 text-xs space-y-2 border border-slate-200 dark:border-white/5">
-                    <p className="font-bold text-slate-900 dark:text-slate-200">Q{idx + 1}: {q.text}</p>
+                    <p className="font-bold text-slate-900 dark:text-slate-200">Q{idx + 1} ({q.topic}): {q.text}</p>
+                    <div className="grid grid-cols-2 gap-1.5 pl-2">
+                      {q.options.map((opt, oIdx) => (
+                        <div key={oIdx} className={`p-1.5 rounded text-[10px] truncate border ${oIdx === q.correctIndex ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-300 font-semibold' : 'bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 text-slate-500'}`}>
+                          {String.fromCharCode(65 + oIdx)}: {opt}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* TAB A2: UPLOAD MOCK (PYQ) */}
+      {activeTab === 'upload_mock' && (
+        <div className="space-y-4">
+          <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl p-4 space-y-3.5">
+            <h3 className="text-xs font-extrabold tracking-wider uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5 leading-none font-mono">
+              <Icons.Tag className="w-3.5 h-3.5 text-indigo-500" />
+              1. MOCK / PYQ CLASSIFICATION
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="block text-[9.5px] font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase font-mono">Target Exam</label>
+                <select 
+                  value={selectedExam}
+                  onChange={(e) => setSelectedExam(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg p-2 text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500"
+                >
+                  {examsConfig.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[9.5px] font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase font-mono">Mock Title (e.g. PYQ 2021)</label>
+                <input 
+                  type="text"
+                  placeholder="PYQ 2021 Shift 1"
+                  value={mockTitle}
+                  onChange={(e) => setMockTitle(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg p-2 text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-500 leading-normal font-mono mt-2">
+              Note: Uploading a full mock will automatically distribute questions to subjects ({activeExamConfig?.subjects.map(s => s.name).join(', ')}) based on the exam's blueprint rules.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-xs font-black uppercase text-slate-550 font-mono tracking-wider">
+              2. SOURCE LOADING CHANNEL
+            </h3>
+
+            <div 
+              onDragEnter={handleDrag}
+              onDragOver={handleDrag}
+              onDragLeave={handleDrag}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-2xl p-5 text-center transition-all flex flex-col items-center justify-center gap-2 cursor-pointer ${dragActive ? 'border-rose-500 bg-rose-500/10' : 'border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-white/[0.01] hover:bg-slate-100'}`}
+              onClick={() => document.getElementById('file-uploader-field')?.click()}
+            >
+              <input 
+                type="file" 
+                id="file-uploader-field" 
+                className="hidden" 
+                accept=".json,.html,.htm,.txt"
+                multiple
+                onChange={handleFileInput}
+              />
+              <Icons.FileArchive className="w-7 h-7 text-rose-500 dark:text-rose-400 animate-pulse" />
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-350 text-center">
+                {fileNames.length > 0 
+                  ? `${fileNames.length} file${fileNames.length > 1 ? 's' : ''} selected: ${fileNames.slice(0, 3).join(', ')}${fileNames.length > 3 ? '...' : ''}` 
+                  : "Drag & drop files or click to upload full mock"}
+              </span>
+              <p className="text-[9.5px] text-slate-500 leading-normal max-w-xs font-mono text-center">
+                Upload a JSON or TXT file containing {activeExamConfig?.rules.numQuestions || 100} questions in sequence.
+              </p>
+            </div>
+          </div>
+
+          {/* Verification modal / actions */}
+          {parsedQuestions.length > 0 && (
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 space-y-3.5">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-2">
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                  <Icons.Eye className="w-4 h-4 animate-pulse" />
+                  <span className="text-xs font-black tracking-wide uppercase">Loaded verification ({parsedQuestions.length} Qs)</span>
+                </div>
+                <button
+                  onClick={handleCommitParsedQuestions}
+                  className="py-1.5 px-4 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-lg text-[10px] tracking-wider uppercase transition-all shadow-md cursor-pointer border border-white/10"
+                >
+                  Confirm & Ingest Storage
+                </button>
+              </div>
+
+              <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1">
+                {parsedQuestions.map((q, idx) => (
+                  <div key={idx} className="bg-white dark:bg-black/25 rounded-xl p-3 text-xs space-y-2 border border-slate-200 dark:border-white/5">
+                    <p className="font-bold text-slate-900 dark:text-slate-200">Q{idx + 1} ({q.topic}): {q.text}</p>
                     <div className="grid grid-cols-2 gap-1.5 pl-2">
                       {q.options.map((opt, oIdx) => (
                         <div key={oIdx} className={`p-1.5 rounded text-[10px] truncate border ${oIdx === q.correctIndex ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-300 font-semibold' : 'bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 text-slate-500'}`}>
