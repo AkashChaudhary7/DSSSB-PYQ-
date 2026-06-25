@@ -34,15 +34,15 @@ import { UserProfile, Badge, QuizAttempt, BookmarkedQuestion, LeaderboardEntry, 
 
 // Configuration from firebase-applet-config.json
 const firebaseConfig = {
-  apiKey: "AIzaSyAIX08t52dOObRKfSslQBdodY_kqaDfVQA",
-  authDomain: "corded-sight-05xj8.firebaseapp.com",
-  projectId: "corded-sight-05xj8",
-  storageBucket: "corded-sight-05xj8.firebasestorage.app",
-  messagingSenderId: "586788799831",
-  appId: "1:586788799831:web:c6aeda2bcb25b5c1032a12"
+  apiKey: "AIzaSyCKlicxiIS7BCC1d95n_zCXdWGhmfCiT7c",
+  authDomain: "authentic-machine-rcf5x.firebaseapp.com",
+  projectId: "authentic-machine-rcf5x",
+  storageBucket: "authentic-machine-rcf5x.firebasestorage.app",
+  messagingSenderId: "13354836919",
+  appId: "1:13354836919:web:512c3c22e4b433ed7afe32"
 };
 
-const databaseId = "ai-studio-a6e92202-5cbc-4357-bc91-3f7ae6512a23";
+const databaseId = "ai-studio-a27adeb9-5185-4392-84a0-bab23bf35886";
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
