@@ -14,6 +14,7 @@ import {
   User
 } from 'firebase/auth';
 import { 
+  initializeFirestore,
   getFirestore, 
   doc, 
   setDoc, 
@@ -45,7 +46,7 @@ const databaseId = "ai-studio-a6e92202-5cbc-4357-bc91-3f7ae6512a23";
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app, databaseId);
+export const db = initializeFirestore(app, { experimentalForceLongPolling: true }, databaseId);
 
 // Core initial badges
 export const AVAILABLE_BADGES: Omit<Badge, 'unlockedAt'>[] = [
@@ -102,13 +103,6 @@ export const AVAILABLE_BADGES: Omit<Badge, 'unlockedAt'>[] = [
 
 // Helper to initialize custom firestore profile
 export async function setupUserProfile(user: User, customName?: string): Promise<UserProfile> {
-  const userRef = doc(db, 'users', user.uid);
-  const userSnap = await getDoc(userRef);
-
-  if (userSnap.exists()) {
-    return userSnap.data() as UserProfile;
-  }
-
   const profile: UserProfile = {
     uid: user.uid,
     email: user.email,
@@ -118,10 +112,23 @@ export async function setupUserProfile(user: User, customName?: string): Promise
     flashcardSessionsCount: 0
   };
 
-  await setDoc(userRef, profile);
+  try {
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
 
-  // Initialize Leaderboard entry
-  await updateLeaderboardEntry(profile, 0);
+    if (userSnap.exists()) {
+      return userSnap.data() as UserProfile;
+    }
+
+    await setDoc(userRef, profile);
+
+    // Initialize Leaderboard entry
+    await updateLeaderboardEntry(profile, 0);
+
+  } catch (error) {
+    console.error('Error in setupUserProfile (often due to rules propagation delay):', error);
+    // Return the local profile anyway so the user can proceed locally
+  }
 
   return profile;
 }
