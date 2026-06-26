@@ -332,7 +332,9 @@ export default function QuizView({
         questionText: q.text,
         selectedOptionIndex: selected,
         correctOptionIndex: q.correctIndex,
-        isCorrect
+        isCorrect,
+        topic: q.topic || topic,
+        subtopic: q.subtopic || subtopic
       };
     });
 
@@ -341,8 +343,8 @@ export default function QuizView({
 
     const attempt: QuizAttempt = {
       id: `att-${Date.now()}`,
-      topic: isMockExam ? `${activeExamConfig?.name || examType} Mock Exam` : topic,
-      subtopic: isMockExam ? 'All Subject Blueprints' : subtopic,
+      topic: isMockExam && subtopic === 'All Subject Blueprints' ? `${activeExamConfig?.name || examType} Mock Exam` : topic,
+      subtopic: isMockExam && subtopic === 'All Subject Blueprints' ? 'All Subject Blueprints' : subtopic,
       timestamp: new Date().toISOString(),
       questionsCount: questions.length,
       correctAnswersCount,
@@ -350,6 +352,7 @@ export default function QuizView({
       difficulty: isMockExam ? 'mixed' : difficulty,
       isTimed,
       isMockExam,
+      examId: examType,
       questions: results
     };
 
