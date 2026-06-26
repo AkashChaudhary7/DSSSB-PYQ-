@@ -641,7 +641,7 @@ export default function App() {
         High-fidelity smartphone frame layout on wide viewports (desktop-first luxury)
         Spans beautifully on natural screens, respecting both the full-width mobile focus and aesthetic precision.
       */}
-      <div className="w-full max-w-md h-screen sm:h-[820px] shadow-2xl sm:rounded-3xl border border-slate-250/50 dark:border-white/5 overflow-hidden flex flex-col relative transform transition-all bg-[#eef4fa] dark:bg-[#0B0C0E] text-slate-800 dark:text-slate-100">
+      <div className="w-full max-w-md h-screen sm:h-[820px] shadow-2xl sm:rounded-3xl border border-slate-250/50 dark:border-white/5 overflow-y-auto flex flex-col relative transform transition-all bg-[#eef4fa] dark:bg-[#0B0C0E] text-slate-800 dark:text-slate-100">
         
         {/* Sleek top toolbar info row with top theme color bar */}
         <header className="relative p-4 border-b border-slate-150 dark:border-white/5 flex items-center justify-between bg-white/90 dark:bg-[#161A1D]/90 backdrop-blur-md shrink-0 text-slate-800 dark:text-slate-200 gap-2 select-none">
@@ -737,7 +737,7 @@ export default function App() {
 
         {/* Scrollable View Containment Area */}
         <main 
-          className="flex-1 p-4 overflow-y-auto bg-transparent relative" 
+          className="flex-1 p-4 bg-transparent relative" 
           id="main-view-container"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
