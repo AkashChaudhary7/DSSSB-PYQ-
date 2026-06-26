@@ -81,11 +81,24 @@ export default function HomeView({
     setExpandedTopic(null);
   }, [activeSubjectTab]);
 
+  // Filter attempts belonging to the current exam
+  const examFilteredAttempts = useMemo(() => {
+    return attempts.filter(a => {
+      if (a.examId) return a.examId === currentExam;
+      // Fallback: look up first question's exam
+      const firstQ = a.questions?.[0];
+      if (!firstQ) return true;
+      const qObj = questionPool.find(q => q.id === firstQ.questionId);
+      if (!qObj) return true;
+      return !qObj.exam || qObj.exam === currentExam;
+    });
+  }, [attempts, currentExam, questionPool]);
+
   // Retrieve today's practice progress
   const todayAttemptsCount = useMemo(() => {
     const todayStr = new Date().toDateString();
-    return attempts.filter(a => new Date(a.timestamp).toDateString() === todayStr).length;
-  }, [attempts]);
+    return examFilteredAttempts.filter(a => new Date(a.timestamp).toDateString() === todayStr).length;
+  }, [examFilteredAttempts]);
 
   const bookmarksCount = useMemo(() => {
     return getBookmarks().length;
@@ -106,8 +119,13 @@ export default function HomeView({
       if (q.exam && q.exam !== currentExam) return;
       if (q.topic?.toLowerCase() !== activeSubjectTab?.toLowerCase()) return;
       
+      const qSubLower = q.subtopic?.toLowerCase() || '';
       currentSubjectTopics.forEach(topic => {
-        if (q.subtopic?.toLowerCase().includes(topic.name.toLowerCase()) || q.text?.toLowerCase().includes(topic.name.toLowerCase())) {
+        const tLower = topic.name.toLowerCase();
+        // Check if subtopic is in the topic's subtopics list, or matches topic name
+        const matchSubtopic = topic.subtopics.some(st => st.toLowerCase() === qSubLower || qSubLower.includes(st.toLowerCase()));
+        
+        if (matchSubtopic || qSubLower === tLower || qSubLower.includes(tLower) || q.text?.toLowerCase().includes(tLower)) {
           counts[topic.name] = (counts[topic.name] || 0) + 1;
         }
       });
@@ -120,10 +138,14 @@ export default function HomeView({
   }, [questionPool, currentExam]);
 
   const overallAccuracy = useMemo(() => {
-    const totalCount = attempts.reduce((acc, a) => acc + a.questionsCount, 0);
-    const correctCount = attempts.reduce((acc, a) => acc + a.correctAnswersCount, 0);
+    const totalCount = examFilteredAttempts.reduce((acc, a) => acc + a.questionsCount, 0);
+    const correctCount = examFilteredAttempts.reduce((acc, a) => acc + a.correctAnswersCount, 0);
     return totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
-  }, [attempts]);
+  }, [examFilteredAttempts]);
+
+  const totalPracticedQuestions = useMemo(() => {
+    return examFilteredAttempts.reduce((acc, a) => acc + a.questionsCount, 0);
+  }, [examFilteredAttempts]);
 
   const subjectQuestionsCountMap = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -149,7 +171,7 @@ export default function HomeView({
     if (!currentExamConfig) return null;
     
     // Filter attempts that are mock exams and match the current exam config.
-    const examMocks = attempts.filter(a => a.isMockExam === true);
+    const examMocks = examFilteredAttempts.filter(a => a.isMockExam === true);
     const targetScore = currentExamConfig.targetScore || 100;
 
     if (examMocks.length === 0) {
@@ -187,7 +209,7 @@ export default function HomeView({
       progressPct,
       count: last7Mocks.length
     };
-  }, [attempts, currentExamConfig]);
+  }, [examFilteredAttempts, currentExamConfig]);
 
   const daysLeft = useMemo(() => {
     if (!currentExamConfig || !currentExamConfig.targetDate) return null;
@@ -320,7 +342,7 @@ export default function HomeView({
         <div className="grid grid-cols-3 gap-3 mt-5 pt-4 border-t border-white/10 relative z-10 text-center">
           <div className="group/stat cursor-default">
             <span className={`text-[8px] block font-bold tracking-widest uppercase font-mono transition-colors ${theme === 'dark' ? 'text-slate-400 group-hover/stat:text-slate-300' : 'text-blue-200 group-hover/stat:text-blue-100'}`}>Practiced</span>
-            <span className="text-[13px] font-black font-mono tracking-tight mt-1 block">{attempts.length} <span className="text-[9px] opacity-70 font-sans">Qs</span></span>
+            <span className="text-[13px] font-black font-mono tracking-tight mt-1 block">{totalPracticedQuestions} <span className="text-[9px] opacity-70 font-sans">Qs</span></span>
           </div>
           <div className="border-l border-white/10 group/stat cursor-default">
             <span className={`text-[8px] block font-bold tracking-widest uppercase font-mono transition-colors ${theme === 'dark' ? 'text-slate-400 group-hover/stat:text-slate-300' : 'text-blue-200 group-hover/stat:text-blue-100'}`}>Total Qs</span>
@@ -499,7 +521,7 @@ export default function HomeView({
                           ? 'text-neon-lime bg-neon-lime/10 border-neon-lime/20'
                           : 'text-[#2F69FF] bg-[#2F69FF]/10 border-[#2F69FF]/20'
                       }`}>
-                        {topicQuestionsCount} PYQs
+                        {topicQuestionsCount} Qs
                       </span>
                       <div className={`p-1.5 rounded-full transition-colors ${theme === 'dark' ? 'bg-white/5 group-hover:bg-white/10' : 'bg-slate-100 group-hover:bg-slate-200'}`}>
                         {isExpanded ? (
