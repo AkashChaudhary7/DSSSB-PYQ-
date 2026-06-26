@@ -183,25 +183,32 @@ export default function Dashboard({
     const topicStats: Record<string, { total: number; correct: number }> = {};
 
     filteredAttempts.forEach(att => {
-      // Group by topic
-      const topicName = att.topic;
-      if (!topicStats[topicName]) {
-        topicStats[topicName] = { total: 0, correct: 0 };
+      // Group by topic (case-insensitive key mapping to preserve proper casing if possible, but map everything to lowercase for grouping)
+      const topicKey = att.topic ? att.topic.toLowerCase() : 'general';
+      if (!topicStats[topicKey]) {
+        topicStats[topicKey] = { total: 0, correct: 0 };
       }
-      topicStats[topicName].total += att.questionsCount;
-      topicStats[topicName].correct += att.correctAnswersCount;
+      topicStats[topicKey].total += att.questionsCount;
+      topicStats[topicKey].correct += att.correctAnswersCount;
     });
 
     const strong: { topic: string; accuracy: number; total: number }[] = [];
     const weak: { topic: string; accuracy: number; total: number }[] = [];
 
-    Object.entries(topicStats).forEach(([topic, data]) => {
+    // Map the proper casing back from examSubjectsList
+    const getProperSubjectName = (key: string) => {
+      const match = examSubjectsList.find(s => s.toLowerCase() === key);
+      return match || key.replace(/\b\w/g, c => c.toUpperCase()); // Capitalize words if not found
+    };
+
+    Object.entries(topicStats).forEach(([topicLower, data]) => {
       if (data.total > 0) {
         const accuracy = Math.round((data.correct / data.total) * 100);
+        const properTopic = getProperSubjectName(topicLower);
         if (accuracy >= 65) {
-          strong.push({ topic, accuracy, total: data.total });
+          strong.push({ topic: properTopic, accuracy, total: data.total });
         } else {
-          weak.push({ topic, accuracy, total: data.total });
+          weak.push({ topic: properTopic, accuracy, total: data.total });
         }
       }
     });
@@ -211,7 +218,7 @@ export default function Dashboard({
     weak.sort((a, b) => a.accuracy - b.accuracy);
 
     return { strongTopics: strong, weakTopics: weak };
-  }, [filteredAttempts]);
+  }, [filteredAttempts, examSubjectsList]);
 
   const filteredStrongTopics = useMemo(() => {
     if (!searchQuery.trim()) return strongTopics;
@@ -300,16 +307,16 @@ export default function Dashboard({
     const categoriesMap: { [key: string]: { total: number; correct: number } } = {};
     
     examSubjectsList.forEach(subj => {
-      categoriesMap[subj] = { total: 0, correct: 0 };
+      categoriesMap[subj.toLowerCase()] = { total: 0, correct: 0 };
     });
 
     filteredAttempts.forEach(att => {
-      const topicName = att.topic;
-      if (categoriesMap[topicName]) {
-        categoriesMap[topicName].total += att.questionsCount;
-        categoriesMap[topicName].correct += att.correctAnswersCount;
+      const topicLower = att.topic ? att.topic.toLowerCase() : 'general';
+      if (categoriesMap[topicLower]) {
+        categoriesMap[topicLower].total += att.questionsCount;
+        categoriesMap[topicLower].correct += att.correctAnswersCount;
       } else {
-        categoriesMap[topicName] = { 
+        categoriesMap[topicLower] = { 
           total: att.questionsCount, 
           correct: att.correctAnswersCount 
         };
@@ -320,16 +327,19 @@ export default function Dashboard({
       const { total, correct } = categoriesMap[key];
       const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
       
-      let shortName = key;
-      if (key === "Data Structures & Algos") shortName = "DSA";
-      else if (key === "Database Systems") shortName = "DBMS";
-      else if (key === "Computer Networks") shortName = "Networks";
-      else if (key === "Operating Systems") shortName = "OS";
-      else if (key.length > 12) shortName = key.slice(0, 10) + "..";
+      const match = examSubjectsList.find(s => s.toLowerCase() === key);
+      const properKey = match || key.replace(/\b\w/g, c => c.toUpperCase());
+      
+      let shortName = properKey;
+      if (properKey === "Data Structures & Algos") shortName = "DSA";
+      else if (properKey === "Database Systems") shortName = "DBMS";
+      else if (properKey === "Computer Networks") shortName = "Networks";
+      else if (properKey === "Operating Systems") shortName = "OS";
+      else if (properKey.length > 12) shortName = properKey.slice(0, 10) + "..";
 
       return {
         subject: shortName,
-        fullName: key,
+        fullName: properKey,
         accuracy: accuracy,
         attempts: total
       };
