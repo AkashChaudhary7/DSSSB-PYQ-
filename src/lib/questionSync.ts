@@ -180,12 +180,7 @@ export async function uploadQuestionsInChunks(
  * Synchronizes new questions from Firestore in incremental bundles since last sync.
  * Saves Firestore daily read limits by only requesting newly added/updated records.
  */
-export async function syncQuestionsFromFirestore(selectedExams: string[]): Promise<Question[]> {
-  if (!selectedExams || selectedExams.length === 0) {
-    console.log('No selected exams to sync.');
-    return [];
-  }
-
+export async function syncQuestionsFromFirestore(selectedExams?: string[]): Promise<Question[]> {
   const lastSync = localStorage.getItem(LAST_SYNC_KEY) || '1970-01-01T00:00:00.000Z';
   
   try {
@@ -238,8 +233,8 @@ export async function syncQuestionsFromFirestore(selectedExams: string[]): Promi
           currentLastSync = data.updatedAt;
         }
 
-        // Client-side filtering by selectedExams
-        if (data.examId && selectedExams.includes(data.examId)) {
+        // Load all bundles
+        if (data.examId) {
           if (data.questions && Array.isArray(data.questions)) {
             console.log(`[Sync Debug] Match found! Adding ${data.questions.length} questions for exam ${data.examId}`);
             for (const qObj of data.questions) {
@@ -251,8 +246,6 @@ export async function syncQuestionsFromFirestore(selectedExams: string[]): Promi
           } else {
             console.warn(`[Sync Debug] Questions field is invalid or not an array for doc: ${docSnap.id}`);
           }
-        } else {
-           console.log(`[Sync Debug] Skipped bundle ${docSnap.id}: examId ${data.examId} not in selectedExams (${selectedExams.join(',')})`);
         }
       });
 
