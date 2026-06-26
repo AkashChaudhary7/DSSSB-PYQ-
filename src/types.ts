@@ -55,12 +55,15 @@ export interface QuizAttempt {
   difficulty: Difficulty | 'mixed';
   isTimed: boolean;
   isMockExam?: boolean;
+  examId?: string;
   questions: {
     questionId: string;
     questionText: string;
     selectedOptionIndex: number; // -1 if skipped or timed out
     correctOptionIndex: number;
     isCorrect: boolean;
+    topic?: string;
+    subtopic?: string;
   }[];
 }
 
