@@ -345,8 +345,12 @@ export default function App() {
           console.warn('[Sync] Initial background questions pull failed:', syncErr);
         }
       })
-      .catch(async (err) => {
-        console.warn('[Auth] Anonymous authentication failed (continuing with unauthenticated sync):', err);
+      .catch(async (err: any) => {
+        if (err?.code === 'auth/admin-restricted-operation') {
+          console.info('[Auth] Note: Anonymous auth is disabled in your Firebase Console. Continuing with unauthenticated sync (fully supported & safe!).');
+        } else {
+          console.warn('[Auth] Anonymous auth failed (continuing with unauthenticated sync):', err);
+        }
         try {
           const selectedExams = getSelectedExams();
           await syncQuestionsFromFirestore(selectedExams);
