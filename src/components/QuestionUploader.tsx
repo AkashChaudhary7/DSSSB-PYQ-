@@ -27,6 +27,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploadTotal, setUploadTotal] = useState<number>(0);
   const [uploadCurrent, setUploadCurrent] = useState<number>(0);
+  const [syncFailed, setSyncFailed] = useState<boolean>(false);
 
   // Real-time Firebase sync status & topic progress tracking states
   const [firebaseStatus, setFirebaseStatus] = useState<'connected' | 'syncing' | 'offline'>('connected');
@@ -152,7 +153,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
       }
       if (!subtopicName) return;
 
-      const docId = `${examId}_${subject.replace(/\s+/g, '_')}_${subtopicName.replace(/\s+/g, '_')}`;
+      const docId = `${examId}_${subject.split(' ').join('_')}_${subtopicName.split(' ').join('_')}`;
       const progressRef = doc(db, 'topics_progress', docId);
 
       await setDoc(progressRef, {
@@ -243,7 +244,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
 
     listItems.forEach((el) => {
       const text = el.textContent?.trim() || '';
-      if (text.match(/^\d+[\.\)]\s+/) || text.toLowerCase().startsWith('q:') || text.toLowerCase().startsWith('question:')) {
+      if (text.match(/^\d+[.)]\s+/) || text.toLowerCase().startsWith('q:') || text.toLowerCase().startsWith('question:')) {
         if (currentQText && currentOptions.length >= 2) {
           list.push({
             text: currentQText,
@@ -253,10 +254,10 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
             difficulty: 'medium'
           });
         }
-        currentQText = text.replace(/^\d+[\.\)]\s+/, '').replace(/^q:\s*/i, '').replace(/^question:\s*/i, '');
+        currentQText = text.replace(/^\d+[.)]\s+/, '').replace(/^q:\s*/i, '').replace(/^question:\s*/i, '');
         currentOptions = [];
-      } else if (text.match(/^[a-d][\.\)]\s+/i) || text.match(/^\([a-d]\)\s+/i)) {
-        currentOptions.push(text.replace(/^[a-d][\.\)]\s+/i, '').replace(/^\([a-d]\)\s+/i, ''));
+      } else if (text.match(/^[a-d][.)]\s+/i) || text.match(/^\([a-d]\)\s+/i)) {
+        currentOptions.push(text.replace(/^[a-d][.)]\s+/i, '').replace(/^\([a-d]\)\s+/i, ''));
       }
     });
 
@@ -626,6 +627,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
     if (parsedQuestions.length === 0) return;
     setIsUploading(true);
     setUploadProgress(0);
+    setSyncFailed(false);
     
     // Commit ALL questions at once - uploadQuestionsInChunks will chunk them into bundles of 200
     const batchToUpload = [...parsedQuestions];
@@ -682,7 +684,59 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
       
       onQuestionsSaved();
     } catch (e: any) {
-      setErrorMsg("Failed to persist questions: " + (e.message || String(e)));
+      setErrorMsg("Failed to persist questions to cloud. Local save complete: " + (e.message || String(e)));
+      setSyncFailed(true);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleResumeSync = async () => {
+    if (parsedQuestions.length === 0 || uploadCurrent >= uploadTotal) return;
+    setIsUploading(true);
+    setSyncFailed(false);
+    setErrorMsg(null);
+
+    const remainingQuestions = parsedQuestions.slice(uploadCurrent);
+
+    try {
+      await uploadQuestionsInChunks(remainingQuestions, (uploadedCount) => {
+        const newCurrent = uploadCurrent + uploadedCount;
+        setUploadCurrent(newCurrent);
+        setUploadProgress(Math.round((newCurrent / uploadTotal) * 100));
+      });
+
+      const finalSubtopic = activeTab === 'upload_mock' ? mockTitle.trim() : (useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic);
+      const targetSubject = activeTab === 'upload_mock' ? 'Mock Upload' : selectedSubject;
+      
+      const allQuestions = getAllQuestions();
+      const subtopicQuestions = allQuestions.filter(
+        q => q.exam === selectedExam && q.subtopic === finalSubtopic
+      );
+      const newCount = subtopicQuestions.length;
+      setTopicQuestionCount(newCount);
+
+      logAdminActivity({
+        action: 'added',
+        exam: selectedExam,
+        subject: targetSubject,
+        subtopic: finalSubtopic,
+        count: uploadTotal
+      });
+
+      await syncTopicProgressToFirebase(selectedExam, targetSubject, finalSubtopic, newCount);
+
+      setSuccessCount(uploadTotal);
+      setParsedQuestions([]);
+
+      setFileName(null);
+      setFileNames([]);
+      setSelectedFiles([]);
+      
+      onQuestionsSaved();
+    } catch (e: any) {
+      setErrorMsg("Failed to resume sync: " + (e.message || String(e)));
+      setSyncFailed(true);
     } finally {
       setIsUploading(false);
     }
@@ -960,9 +1014,9 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
             setSuccessCount(0);
           }}
           title="Subject Upload"
-          className={`px-6 py-2.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${activeTab === 'upload' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
+          className={`px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer font-bold text-xs ${activeTab === 'upload' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
         >
-          <Icons.Upload className={`w-5 h-5 ${activeTab === 'upload' ? 'text-indigo-200' : 'text-emerald-500'}`} />
+          <Icons.Upload className={`w-4 h-4 ${activeTab === 'upload' ? 'text-indigo-200' : 'text-emerald-500'}`} />
         </button>
 
         <button
@@ -971,9 +1025,9 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
             setSuccessCount(0);
           }}
           title="Upload Full Mock"
-          className={`px-6 py-2.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${activeTab === 'upload_mock' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
+          className={`px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer font-bold text-xs ${activeTab === 'upload_mock' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
         >
-          <Icons.FileArchive className={`w-5 h-5 ${activeTab === 'upload_mock' ? 'text-indigo-200' : 'text-rose-500'}`} />
+          <Icons.FileArchive className={`w-4 h-4 ${activeTab === 'upload_mock' ? 'text-indigo-200' : 'text-rose-500'}`} />
         </button>
 
         <button
@@ -982,9 +1036,9 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
             setSuccessCount(0);
           }}
           title="Configure Exams & Rules"
-          className={`px-6 py-2.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${activeTab === 'manage_exams' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
+          className={`px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer font-bold text-xs ${activeTab === 'manage_exams' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
         >
-          <Icons.Sliders className={`w-5 h-5 ${activeTab === 'manage_exams' ? 'text-indigo-200' : 'text-amber-500'}`} />
+          <Icons.Sliders className={`w-4 h-4 ${activeTab === 'manage_exams' ? 'text-indigo-200' : 'text-amber-500'}`} />
         </button>
       </div>
 
@@ -1025,9 +1079,20 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
       {errorMsg && (
         <div className="p-3 bg-rose-500/10 border border-rose-500/25 rounded-xl flex items-start gap-2.5 text-rose-700 dark:text-rose-300">
           <Icons.AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
-          <div className="text-[11px]">
+          <div className="text-[11px] w-full">
             <span className="font-extrabold">Operation Aborted</span>
-            <p className="text-slate-600 dark:text-slate-350 text-[10px] mt-0.5 leading-relaxed">{errorMsg}</p>
+            <p className="text-slate-600 dark:text-slate-350 text-[10px] mt-0.5 leading-relaxed mb-2">{errorMsg}</p>
+            {syncFailed && (
+              <div className="flex items-center justify-between border-t border-rose-500/20 pt-2 mt-2">
+                <span className="font-mono text-[10px]">Remaining: {uploadTotal - uploadCurrent} / {uploadTotal} questions to sync</span>
+                <button 
+                  onClick={handleResumeSync}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded shadow-sm flex items-center gap-1.5 transition-colors"
+                >
+                  <Icons.Play className="w-3 h-3" /> Resume Sync
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
