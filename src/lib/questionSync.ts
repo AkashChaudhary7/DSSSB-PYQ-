@@ -115,12 +115,12 @@ export async function uploadQuestionsInChunks(
         currentBundleQs = [];
       }
 
-      // Distribute questions
-      const batch = writeBatch(db);
+      // Distribute questions sequentially
       let qToInsert = [...groupQs];
 
       // If we are appending to the last bundle
-      if (currentBundleQs.length > 0 && lastBundleDoc) {
+      if (currentBundleQs.length > 0 && lastBundleDoc && qToInsert.length > 0) {
+        const batch = writeBatch(db);
         const spaceLeft = 200 - currentBundleQs.length;
         const fillQs = qToInsert.slice(0, spaceLeft);
         qToInsert = qToInsert.slice(spaceLeft);
@@ -139,11 +139,18 @@ export async function uploadQuestionsInChunks(
           updatedAt: new Date().toISOString(),
           questions: currentBundleQs
         }, { merge: true });
+
+        await batch.commit();
+        processedCount += fillQs.length;
+        if (onProgress) {
+          onProgress(processedCount);
+        }
       }
 
-      // For the remaining questions, chunk them into new bundles of 200
+      // For the remaining questions, chunk them into new bundles of 200 and commit sequentially
       const bundleSize = 200;
       for (let i = 0; i < qToInsert.length; i += bundleSize) {
+        const batch = writeBatch(db);
         const chunk = qToInsert.slice(i, i + bundleSize);
         const bundleId = `bundle_${examId}_${nextIndex}`;
         const docRef = doc(db, BUNDLES_COLLECTION, bundleId);
@@ -155,14 +162,12 @@ export async function uploadQuestionsInChunks(
           questions: chunk
         });
 
+        await batch.commit();
         nextIndex++;
-      }
-
-      await batch.commit();
-
-      processedCount += groupQs.length;
-      if (onProgress) {
-        onProgress(processedCount);
+        processedCount += chunk.length;
+        if (onProgress) {
+          onProgress(processedCount);
+        }
       }
     }
   } catch (error) {
@@ -184,20 +189,18 @@ export async function syncQuestionsFromFirestore(selectedExams: string[]): Promi
   const lastSync = localStorage.getItem(LAST_SYNC_KEY) || '1970-01-01T00:00:00.000Z';
   
   try {
-    const newQuestions: Question[] = [];
+    const allSyncedQuestions: Question[] = [];
     let currentLastSync = lastSync;
 
     // Process with limit-based cursor pagination based solely on updatedAt.
-    // This uses a single-field index (which Firestore provides automatically),
-    // entirely avoiding the need for manual composite index configuration.
-    // BATCH_LIMIT of 5 bundles allows pulling up to 1000 questions per query page
-    // (since each bundle document holds up to 200 questions), ensuring highly efficient,
-    // budget-safe read operations and handling at least 200+ questions per batch.
-    const BATCH_LIMIT = 5;
+    // Fetch 1 bundle (up to 200 questions) per request to avoid memory strain
+    const BATCH_LIMIT = 20;
     let lastVisible: any = null;
     let hasMore = true;
+    let fetchAttempts = 0;
 
-    while (hasMore) {
+    while (hasMore && fetchAttempts < 100) {
+      fetchAttempts++;
       let q;
       if (lastVisible) {
         q = query(
@@ -216,14 +219,21 @@ export async function syncQuestionsFromFirestore(selectedExams: string[]): Promi
         );
       }
 
+      console.log(`[Sync] Querying bundles with lastSync=${lastSync}, attempt=${fetchAttempts}`);
       const snapshot = await getDocs(q);
+      console.log(`[Sync] Fetched ${snapshot.docs.length} bundles in this batch.`);
+      
       if (snapshot.empty) {
         hasMore = false;
         break;
       }
 
+      const batchQuestions: Question[] = [];
+
       snapshot.forEach((docSnap) => {
         const data = docSnap.data() as any;
+        console.log(`[Sync Debug] Doc ID: ${docSnap.id}, examId: ${data.examId}, questions length: ${data.questions?.length}`);
+        
         if (data.updatedAt > currentLastSync) {
           currentLastSync = data.updatedAt;
         }
@@ -231,15 +241,31 @@ export async function syncQuestionsFromFirestore(selectedExams: string[]): Promi
         // Client-side filtering by selectedExams
         if (data.examId && selectedExams.includes(data.examId)) {
           if (data.questions && Array.isArray(data.questions)) {
+            console.log(`[Sync Debug] Match found! Adding ${data.questions.length} questions for exam ${data.examId}`);
             for (const qObj of data.questions) {
-              newQuestions.push({
+              batchQuestions.push({
                 ...qObj,
                 source: qObj.source || 'Firestore Sync'
               });
             }
+          } else {
+            console.warn(`[Sync Debug] Questions field is invalid or not an array for doc: ${docSnap.id}`);
           }
+        } else {
+           console.log(`[Sync Debug] Skipped bundle ${docSnap.id}: examId ${data.examId} not in selectedExams (${selectedExams.join(',')})`);
         }
       });
+
+      if (batchQuestions.length > 0) {
+        // Store in local IndexedDB cache incrementally
+        try {
+          await saveQuestionsCached(batchQuestions);
+        } catch (dbErr) {
+          console.error(`[Sync Debug] saveQuestionsCached failed!`, dbErr);
+          throw dbErr; // Let the outer catch handle it
+        }
+        allSyncedQuestions.push(...batchQuestions);
+      }
 
       lastVisible = snapshot.docs[snapshot.docs.length - 1];
       if (snapshot.docs.length < BATCH_LIMIT) {
@@ -247,14 +273,12 @@ export async function syncQuestionsFromFirestore(selectedExams: string[]): Promi
       }
     }
 
-    if (newQuestions.length > 0) {
-      // Store in local IndexedDB cache
-      await saveQuestionsCached(newQuestions);
-      console.log(`Synchronized ${newQuestions.length} questions from Firestore into IndexedDB cache (from bundles).`);
+    if (allSyncedQuestions.length > 0) {
+      console.log(`Synchronized ${allSyncedQuestions.length} questions from Firestore into IndexedDB cache (from bundles).`);
     }
 
     localStorage.setItem(LAST_SYNC_KEY, currentLastSync);
-    return newQuestions;
+    return allSyncedQuestions;
   } catch (error) {
     console.warn('Incremental bundle sync warning, continuing offline: ', error);
     return [];
