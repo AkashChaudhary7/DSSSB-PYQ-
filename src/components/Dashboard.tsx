@@ -54,12 +54,26 @@ export default function Dashboard({
   const [isPulling, setIsPulling] = useState(false);
   const [cloudQuestionCount, setCloudQuestionCount] = useState<number | null>(null);
   const [loadingCloudCount, setLoadingCloudCount] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string>('Never');
 
   React.useEffect(() => {
     if (showDiagnostics) {
       setCloudQuestionCount(questionPool.length);
     }
   }, [showDiagnostics, questionPool.length]);
+
+  React.useEffect(() => {
+    const syncStr = localStorage.getItem('cs_mcq_last_sync_time');
+    if (syncStr) {
+      try {
+        setLastSyncTime(new Date(parseInt(syncStr, 10)).toLocaleString());
+      } catch(e) {
+        setLastSyncTime('Unknown');
+      }
+    } else {
+      setLastSyncTime('Never');
+    }
+  }, [questionPool.length, isPulling]);
 
   // O(1) lookup map to prevent massive UI lag when questionPool scales to 20k+ items
   const questionMap = useMemo(() => {
@@ -802,6 +816,51 @@ export default function Dashboard({
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="space-y-5"
         >
+          {/* Database Status Widget */}
+          <div className="bg-white/45 dark:bg-[#161A1D]/80 backdrop-blur-md border border-indigo-500/20 dark:border-neon-lime/20 rounded-2xl p-4 shadow-lg text-left flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xs font-black uppercase text-indigo-600 dark:text-neon-lime tracking-wider flex items-center gap-1.5 mb-2">
+                <Icons.Database className="w-4 h-4" />
+                Local Database Status
+              </h3>
+              <div className="flex gap-4">
+                <div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">IndexedDB Items</p>
+                  <p className="text-lg font-black text-slate-800 dark:text-white">{questionPool.length}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Last Sync</p>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300 mt-0.5">{lastSyncTime}</p>
+                </div>
+              </div>
+            </div>
+            
+            <button
+              onClick={async () => {
+                if (isPulling) return;
+                setIsPulling(true);
+                if (onForceCloudPull) {
+                  await onForceCloudPull();
+                } else {
+                  await new Promise(resolve => setTimeout(resolve, 800));
+                }
+                setIsPulling(false);
+              }}
+              disabled={isPulling}
+              className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-2 justify-center shrink-0 border-0 ${
+                theme === 'dark' 
+                  ? 'bg-[#9EFF33] text-black hover:bg-[#8ade2a]' 
+                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+              } ${isPulling ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              {isPulling ? (
+                <><Icons.RefreshCw className="w-3.5 h-3.5 animate-spin" /> Syncing Cloud Data...</>
+              ) : (
+                <><Icons.CloudDownload className="w-3.5 h-3.5" /> Force Full Resync</>
+              )}
+            </button>
+          </div>
+
           {/* Main Stats Ribbon Card Grid */}
           <div className="grid grid-cols-2 gap-2" id="stats-ribbon-grid">
             {/* Accuracy card */}
