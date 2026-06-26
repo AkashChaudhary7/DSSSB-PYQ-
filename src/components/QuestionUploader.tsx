@@ -465,9 +465,6 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
       }
 
       const finalSubtopic = useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic;
-      if (!finalSubtopic) {
-        throw new Error("Please select or write a valid Subtopic classification!");
-      }
 
       const completedQuestions: Question[] = results.map((q, idx) => ({
         ...q,
@@ -600,7 +597,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
         
         setParsedQuestions(completedQuestions);
       } else {
-        const finalSubtopic = (useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic) || "General";
+        const finalSubtopic = (useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic) || "";
 
         const completedQuestions: Question[] = allCombinedQuestions.map((q, idx) => ({
           ...q,
@@ -650,7 +647,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
       });
 
       // After successfully committing to firestore, calculate new count and sync progress
-      const finalSubtopic = activeTab === 'upload_mock' ? (mockTitle.trim() || 'General Mock') : ((useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic) || 'General');
+      const finalSubtopic = activeTab === 'upload_mock' ? (mockTitle.trim() || 'General Mock') : ((useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic) || '');
       const targetSubject = activeTab === 'upload_mock' ? 'Mock Upload' : selectedSubject;
       
       const allQuestions = getAllQuestions();
@@ -703,7 +700,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
         setUploadProgress(Math.round((newCurrent / uploadTotal) * 100));
       });
 
-      const finalSubtopic = activeTab === 'upload_mock' ? (mockTitle.trim() || 'General Mock') : ((useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic) || 'General');
+      const finalSubtopic = activeTab === 'upload_mock' ? (mockTitle.trim() || 'General Mock') : ((useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic) || '');
       const targetSubject = activeTab === 'upload_mock' ? 'Mock Upload' : selectedSubject;
       
       const allQuestions = getAllQuestions();
@@ -1144,7 +1141,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
 
             <div className="pt-2 border-t border-slate-200 dark:border-white/5">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase font-mono">Assign Subtopic Division</span>
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase font-mono">Assign Subtopic Division (Optional)</span>
                 <button 
                   type="button"
                   onClick={() => setUseCustomSubtopic(!useCustomSubtopic)}
@@ -1160,7 +1157,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
                   <Icons.Plus className="absolute left-2.5 top-2.5 w-4 h-4 text-slate-400" />
                   <input 
                     type="text"
-                    placeholder="Type new Subtopic classification name..."
+                    placeholder="Type custom subtopic or leave blank for Subject-level..."
                     value={customSubtopic}
                     onChange={(e) => setCustomSubtopic(e.target.value)}
                     className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg pl-9 pr-3 py-2 text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 text-xs"
@@ -1172,6 +1169,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
                   onChange={(e) => setSelectedSubtopic(e.target.value)}
                   className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg p-2 text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500"
                 >
+                  <option value="">-- No Subtopic (Associate directly with Subject) --</option>
                   {activeSubtopics.map((sub, idx) => <option key={idx} value={sub}>{sub}</option>)}
                   {activeSubtopics.length === 0 && <option value="General Theory">General Theory (Default)</option>}
                 </select>
