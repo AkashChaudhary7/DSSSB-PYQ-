@@ -238,7 +238,10 @@ export default function App() {
       setIsSyncing(true);
       try {
         const selectedExams = getSelectedExams();
-        await syncQuestionsFromFirestore(selectedExams);
+        const syncedQs = await syncQuestionsFromFirestore(selectedExams);
+        if (syncedQs && syncedQs.length > 0) {
+          localStorage.setItem('cs_mcq_last_sync_time', Date.now().toString());
+        }
       } catch (err) {
         console.warn('[Sync] Pull-to-refresh questions pull failed:', err);
       }
@@ -353,7 +356,10 @@ export default function App() {
         }
         try {
           const selectedExams = getSelectedExams();
-          await syncQuestionsFromFirestore(selectedExams);
+          const syncedQs = await syncQuestionsFromFirestore(selectedExams);
+          if (syncedQs && syncedQs.length > 0) {
+            localStorage.setItem('cs_mcq_last_sync_time', Date.now().toString());
+          }
           await syncLocalState();
         } catch (syncErr) {
           console.warn('[Sync] Unauthenticated background questions pull failed:', syncErr);
@@ -371,6 +377,7 @@ export default function App() {
       await clearQuestionsCached();
       const syncedQs = await syncQuestionsFromFirestore(selectedExams);
       console.log(`[Sync] Force cloud pull completed. Fetched ${syncedQs.length} questions.`);
+      localStorage.setItem('cs_mcq_last_sync_time', Date.now().toString());
       await syncLocalState();
     } catch (err: any) {
       console.error('[Sync] Force cloud pull failed:', err);
