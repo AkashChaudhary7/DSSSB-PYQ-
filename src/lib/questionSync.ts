@@ -186,53 +186,49 @@ export async function syncQuestionsFromFirestore(selectedExams: string[]): Promi
     const newQuestions: Question[] = [];
     let currentLastSync = lastSync;
 
-    // Chunk selectedExams into size of 10 to comply with Firestore 'in' operator limits
-    const examChunks: string[][] = [];
-    for (let i = 0; i < selectedExams.length; i += 10) {
-      examChunks.push(selectedExams.slice(i, i + 10));
-    }
-
-    // Process each exam chunk with limit-based cursor pagination.
+    // Process with limit-based cursor pagination based solely on updatedAt.
+    // This uses a single-field index (which Firestore provides automatically),
+    // entirely avoiding the need for manual composite index configuration.
     // BATCH_LIMIT of 5 bundles allows pulling up to 1000 questions per query page
     // (since each bundle document holds up to 200 questions), ensuring highly efficient,
     // budget-safe read operations and handling at least 200+ questions per batch.
     const BATCH_LIMIT = 5;
+    let lastVisible: any = null;
+    let hasMore = true;
 
-    for (const chunk of examChunks) {
-      let lastVisible: any = null;
-      let hasMore = true;
+    while (hasMore) {
+      let q;
+      if (lastVisible) {
+        q = query(
+          collection(db, BUNDLES_COLLECTION),
+          where('updatedAt', '>', lastSync),
+          orderBy('updatedAt'),
+          startAfter(lastVisible),
+          limit(BATCH_LIMIT)
+        );
+      } else {
+        q = query(
+          collection(db, BUNDLES_COLLECTION),
+          where('updatedAt', '>', lastSync),
+          orderBy('updatedAt'),
+          limit(BATCH_LIMIT)
+        );
+      }
 
-      while (hasMore) {
-        let q;
-        if (lastVisible) {
-          q = query(
-            collection(db, BUNDLES_COLLECTION),
-            where('examId', 'in', chunk),
-            where('updatedAt', '>', lastSync),
-            startAfter(lastVisible),
-            limit(BATCH_LIMIT)
-          );
-        } else {
-          q = query(
-            collection(db, BUNDLES_COLLECTION),
-            where('examId', 'in', chunk),
-            where('updatedAt', '>', lastSync),
-            limit(BATCH_LIMIT)
-          );
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        hasMore = false;
+        break;
+      }
+
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as any;
+        if (data.updatedAt > currentLastSync) {
+          currentLastSync = data.updatedAt;
         }
 
-        const snapshot = await getDocs(q);
-        if (snapshot.empty) {
-          hasMore = false;
-          break;
-        }
-
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data() as any;
-          if (data.updatedAt > currentLastSync) {
-            currentLastSync = data.updatedAt;
-          }
-
+        // Client-side filtering by selectedExams
+        if (data.examId && selectedExams.includes(data.examId)) {
           if (data.questions && Array.isArray(data.questions)) {
             for (const qObj of data.questions) {
               newQuestions.push({
@@ -241,12 +237,12 @@ export async function syncQuestionsFromFirestore(selectedExams: string[]): Promi
               });
             }
           }
-        });
-
-        lastVisible = snapshot.docs[snapshot.docs.length - 1];
-        if (snapshot.docs.length < BATCH_LIMIT) {
-          hasMore = false;
         }
+      });
+
+      lastVisible = snapshot.docs[snapshot.docs.length - 1];
+      if (snapshot.docs.length < BATCH_LIMIT) {
+        hasMore = false;
       }
     }
 
