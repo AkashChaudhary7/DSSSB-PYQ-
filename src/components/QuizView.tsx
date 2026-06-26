@@ -121,7 +121,16 @@ export default function QuizView({
         }
       }
       if (subtopic !== 'All Subtopics' && subtopic !== 'All Section Units' && !subtopic.includes('All Section Units')) {
-        filtered = filtered.filter(q => q.subtopic.toLowerCase() === subtopic.toLowerCase());
+        if (subtopic.toLowerCase() === 'general practice') {
+          const matchedSubject = activeExamConfig?.subjects.find(s => s.name.toLowerCase() === topic.toLowerCase());
+          const predefinedSubtopics = matchedSubject ? matchedSubject.topics.flatMap(t => t.subtopics.map(st => st.toLowerCase())) : [];
+          filtered = filtered.filter(q => {
+            const qSubLower = q.subtopic?.toLowerCase() || '';
+            return qSubLower === '' || qSubLower === 'general practice' || !predefinedSubtopics.includes(qSubLower);
+          });
+        } else {
+          filtered = filtered.filter(q => q.subtopic && q.subtopic.toLowerCase() === subtopic.toLowerCase());
+        }
       }
       if (difficulty !== 'mixed') {
         filtered = filtered.filter(q => q.difficulty === difficulty);
