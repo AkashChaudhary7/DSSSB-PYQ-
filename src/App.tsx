@@ -345,8 +345,15 @@ export default function App() {
           console.warn('[Sync] Initial background questions pull failed:', syncErr);
         }
       })
-      .catch((err) => {
-        console.warn('[Auth] Anonymous authentication failed (continuing local-only):', err);
+      .catch(async (err) => {
+        console.warn('[Auth] Anonymous authentication failed (continuing with unauthenticated sync):', err);
+        try {
+          const selectedExams = getSelectedExams();
+          await syncQuestionsFromFirestore(selectedExams);
+          await syncLocalState();
+        } catch (syncErr) {
+          console.warn('[Sync] Unauthenticated background questions pull failed:', syncErr);
+        }
       });
   }, []);
 
