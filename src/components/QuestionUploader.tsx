@@ -600,10 +600,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
         
         setParsedQuestions(completedQuestions);
       } else {
-        const finalSubtopic = useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic;
-        if (!finalSubtopic) {
-          throw new Error("Please select or write a valid Subtopic classification!");
-        }
+        const finalSubtopic = (useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic) || "General";
 
         const completedQuestions: Question[] = allCombinedQuestions.map((q, idx) => ({
           ...q,
@@ -653,7 +650,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
       });
 
       // After successfully committing to firestore, calculate new count and sync progress
-      const finalSubtopic = activeTab === 'upload_mock' ? mockTitle.trim() : (useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic);
+      const finalSubtopic = activeTab === 'upload_mock' ? (mockTitle.trim() || 'General Mock') : ((useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic) || 'General');
       const targetSubject = activeTab === 'upload_mock' ? 'Mock Upload' : selectedSubject;
       
       const allQuestions = getAllQuestions();
@@ -706,7 +703,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
         setUploadProgress(Math.round((newCurrent / uploadTotal) * 100));
       });
 
-      const finalSubtopic = activeTab === 'upload_mock' ? mockTitle.trim() : (useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic);
+      const finalSubtopic = activeTab === 'upload_mock' ? (mockTitle.trim() || 'General Mock') : ((useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic) || 'General');
       const targetSubject = activeTab === 'upload_mock' ? 'Mock Upload' : selectedSubject;
       
       const allQuestions = getAllQuestions();
