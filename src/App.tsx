@@ -853,6 +853,7 @@ export default function App() {
                     onNavigate={(targetView) => setView(targetView)}
                     isAdmin={adminUnlocked}
                     onSelectSubtopic={handleSelectSubtopic}
+                    onForceCloudPull={handleForceCloudPull}
                   />
                 )}
 
