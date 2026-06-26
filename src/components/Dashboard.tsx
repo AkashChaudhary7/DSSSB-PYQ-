@@ -89,6 +89,7 @@ export default function Dashboard({
   const filteredAttempts = useMemo(() => {
     if (!currentExam) return attempts;
     return attempts.filter(att => {
+      if (att.examId) return att.examId === currentExam;
       const firstQInfo = att.questions[0];
       if (!firstQInfo) return true;
       const questionObj = questionMap.get(firstQInfo.questionId);
@@ -311,16 +312,23 @@ export default function Dashboard({
     });
 
     filteredAttempts.forEach(att => {
-      const topicLower = att.topic ? att.topic.toLowerCase() : 'general';
-      if (categoriesMap[topicLower]) {
-        categoriesMap[topicLower].total += att.questionsCount;
-        categoriesMap[topicLower].correct += att.correctAnswersCount;
-      } else {
-        categoriesMap[topicLower] = { 
-          total: att.questionsCount, 
-          correct: att.correctAnswersCount 
-        };
-      }
+      att.questions.forEach(q => {
+        const poolQ = questionMap.get(q.questionId);
+        const topicName = q.topic || poolQ?.topic || att.topic || 'General Studies (GS)';
+        const topicLower = topicName.toLowerCase();
+        
+        const matchedKey = Object.keys(categoriesMap).find(k => k === topicLower || topicLower.includes(k) || k.includes(topicLower));
+        const finalKey = matchedKey || topicLower;
+
+        if (!categoriesMap[finalKey]) {
+          categoriesMap[finalKey] = { total: 0, correct: 0 };
+        }
+
+        categoriesMap[finalKey].total += 1;
+        if (q.isCorrect) {
+          categoriesMap[finalKey].correct += 1;
+        }
+      });
     });
 
     return Object.keys(categoriesMap).map(key => {
