@@ -579,7 +579,13 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
     if (parsedQuestions.length === 0) return;
     setIsUploading(true);
     setUploadProgress(0);
-    setUploadTotal(parsedQuestions.length);
+    
+    // Process up to 200 questions in this batch
+    const batchSize = 200;
+    const batchToUpload = parsedQuestions.slice(0, batchSize);
+    const remainingQuestions = parsedQuestions.slice(batchSize);
+
+    setUploadTotal(batchToUpload.length);
     setUploadCurrent(0);
     setErrorMsg(null);
     setSuccessCount(0);
@@ -589,14 +595,14 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
       const customStr = localStorage.getItem('cs_mcq_custom_questions');
       const existingCustom: Question[] = customStr ? JSON.parse(customStr) : [];
       const existingIds = new Set(existingCustom.map(q => q.id));
-      const uniqueNew = parsedQuestions.filter(q => !existingIds.has(q.id));
+      const uniqueNew = batchToUpload.filter(q => !existingIds.has(q.id));
       const updatedCustom = [...existingCustom, ...uniqueNew];
       localStorage.setItem('cs_mcq_custom_questions', JSON.stringify(updatedCustom));
 
       // Now run the chunk uploader with progress callback
-      await uploadQuestionsInChunks(parsedQuestions, (uploadedCount) => {
+      await uploadQuestionsInChunks(batchToUpload, (uploadedCount) => {
         setUploadCurrent(uploadedCount);
-        setUploadProgress(Math.round((uploadedCount / parsedQuestions.length) * 100));
+        setUploadProgress(Math.round((uploadedCount / batchToUpload.length) * 100));
       });
 
       // After successfully committing to firestore, calculate new count and sync progress
@@ -616,17 +622,20 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
         exam: selectedExam,
         subject: targetSubject,
         subtopic: finalSubtopic,
-        count: parsedQuestions.length
+        count: batchToUpload.length
       });
 
       // Now sync this live to Firebase
       await syncTopicProgressToFirebase(selectedExam, targetSubject, finalSubtopic, newCount);
 
-      setSuccessCount(parsedQuestions.length);
-      setParsedQuestions([]);
-      setFileName(null);
-      setFileNames([]);
-      setSelectedFiles([]);
+      setSuccessCount(batchToUpload.length);
+      setParsedQuestions(remainingQuestions);
+
+      if (remainingQuestions.length === 0) {
+        setFileName(null);
+        setFileNames([]);
+        setSelectedFiles([]);
+      }
       onQuestionsSaved();
     } catch (e: any) {
       setErrorMsg("Failed to persist questions: " + (e.message || String(e)));
@@ -929,7 +938,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
           className={`flex-1 whitespace-nowrap px-4 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${activeTab === 'upload' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
         >
           <Icons.Upload className={`w-4 h-4 ${activeTab === 'upload' ? 'text-indigo-200' : 'text-emerald-500'}`} />
-          <span></span>
+          <span>Subject Upload</span>
         </button>
 
         <button
@@ -941,7 +950,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
           className={`flex-1 whitespace-nowrap px-4 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${activeTab === 'upload_mock' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}`}
         >
           <Icons.FileArchive className={`w-4 h-4 ${activeTab === 'upload_mock' ? 'text-indigo-200' : 'text-rose-500'}`} />
-          <span>Full Mock</span>
+          <span>Upload Full Mock</span>
         </button>
 
         <button
@@ -958,23 +967,24 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
       </div>
 
       {isUploading && (
-        <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl space-y-2 text-xs">
+        <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl space-y-3 text-xs shadow-inner">
           <div className="flex items-center justify-between text-[11px] font-bold text-indigo-700 dark:text-indigo-300">
             <span className="flex items-center gap-2">
               <Icons.Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
-              Syncing MCQs with Firebase Live Data...
+              Batch Upload Active (Max 200 per sync)
             </span>
             <span className="font-mono text-xs">{uploadCurrent} / {uploadTotal} ({uploadProgress}%)</span>
           </div>
-          <div className="w-full bg-slate-200 dark:bg-white/10 h-2.5 rounded-full overflow-hidden">
+          <div className="w-full bg-slate-200 dark:bg-white/10 h-2 rounded-full overflow-hidden">
             <div 
               className="bg-indigo-600 dark:bg-indigo-400 h-full rounded-full transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed font-mono">
-            Adding questions live into subject: <span className="text-slate-800 dark:text-slate-200 font-extrabold">{selectedSubject}</span>, subtopic: <span className="text-slate-800 dark:text-slate-200 font-extrabold">{useCustomSubtopic ? customSubtopic : selectedSubtopic}</span>.
-          </p>
+          <div className="flex justify-between items-center text-[10px] font-mono text-slate-500 dark:text-slate-400">
+            <span>DB ID: <span className="text-indigo-400 font-bold">ai-studio-a27adeb9-5185-4392-84a0-bab23bf35886</span></span>
+            <span>Batch Progress</span>
+          </div>
         </div>
       )}
 
@@ -1120,18 +1130,31 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
 
           {/* Verification modal / actions */}
           {parsedQuestions.length > 0 && (
-            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 space-y-3.5">
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-2">
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                  <Icons.Eye className="w-4 h-4 animate-pulse" />
-                  <span className="text-xs font-black tracking-wide uppercase">Loaded verification ({parsedQuestions.length} Qs)</span>
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 space-y-3.5 shadow-md">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-white/5 pb-2.5">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                    <Icons.Eye className="w-4 h-4 animate-pulse shrink-0" />
+                    <span className="text-xs font-black tracking-wide uppercase">Loaded verification ({parsedQuestions.length} Qs pending)</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                    Target database: <span className="font-bold text-amber-500">ai-studio-a27adeb9-5185-4392-84a0-bab23bf35886</span>
+                  </div>
                 </div>
-                <button
-                  onClick={handleCommitParsedQuestions}
-                  className="py-1.5 px-4 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-lg text-[10px] tracking-wider uppercase transition-all shadow-md cursor-pointer border border-white/10"
-                >
-                  Confirm & Ingest Storage
-                </button>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <button
+                    onClick={handleCommitParsedQuestions}
+                    disabled={isUploading}
+                    className="py-1.5 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-800 disabled:opacity-50 text-slate-950 font-black rounded-lg text-[10px] tracking-wider uppercase transition-all shadow-md cursor-pointer border border-white/10"
+                  >
+                    {parsedQuestions.length > 200 ? 'Sync Next 200 Questions' : `Sync Final ${parsedQuestions.length} Questions`}
+                  </button>
+                  {parsedQuestions.length > 200 && (
+                    <span className="text-[9px] text-amber-400 font-mono">
+                      {parsedQuestions.length - 200} questions will be left to sync manually
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1">
@@ -1226,18 +1249,31 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
 
           {/* Verification modal / actions */}
           {parsedQuestions.length > 0 && (
-            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 space-y-3.5">
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-2">
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                  <Icons.Eye className="w-4 h-4 animate-pulse" />
-                  <span className="text-xs font-black tracking-wide uppercase">Loaded verification ({parsedQuestions.length} Qs)</span>
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 space-y-3.5 shadow-md">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-white/5 pb-2.5">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                    <Icons.Eye className="w-4 h-4 animate-pulse shrink-0" />
+                    <span className="text-xs font-black tracking-wide uppercase">Loaded verification ({parsedQuestions.length} Qs pending)</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                    Target database: <span className="font-bold text-amber-500">ai-studio-a27adeb9-5185-4392-84a0-bab23bf35886</span>
+                  </div>
                 </div>
-                <button
-                  onClick={handleCommitParsedQuestions}
-                  className="py-1.5 px-4 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-lg text-[10px] tracking-wider uppercase transition-all shadow-md cursor-pointer border border-white/10"
-                >
-                  Confirm & Ingest Storage
-                </button>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <button
+                    onClick={handleCommitParsedQuestions}
+                    disabled={isUploading}
+                    className="py-1.5 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-800 disabled:opacity-50 text-slate-950 font-black rounded-lg text-[10px] tracking-wider uppercase transition-all shadow-md cursor-pointer border border-white/10"
+                  >
+                    {parsedQuestions.length > 200 ? 'Sync Next 200 Questions' : `Sync Final ${parsedQuestions.length} Questions`}
+                  </button>
+                  {parsedQuestions.length > 200 && (
+                    <span className="text-[9px] text-amber-400 font-mono">
+                      {parsedQuestions.length - 200} questions will be left to sync manually
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1">
