@@ -3,11 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Question } from '../types';
-import { saveCustomQuestions } from '../lib/storage';
+import { saveCustomQuestions, getExamsConfig } from '../lib/storage';
 import * as Icons from 'lucide-react';
-import { TOPICS } from '../data/defaultQuestions';
 
 interface QuestionGeneratorProps {
   onBack: () => void;
@@ -23,13 +22,26 @@ export default function QuestionGenerator({
   onStartQuizImmediately
 }: QuestionGeneratorProps) {
   const [subtopicQuery, setSubtopicQuery] = useState<string>(preFilledSubtopic);
-  const [parentTopic, setParentTopic] = useState<string>("Operating Systems");
+  const [parentTopic, setParentTopic] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<Question[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [configHint, setConfigHint] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
   const [isOfflineFallback, setIsOfflineFallback] = useState<boolean>(false);
+
+  const activeSubjects = useMemo(() => {
+    const activeExam = localStorage.getItem('cs_mcq_active_exam') || 'dsssb_tgt_cs';
+    const configs = getExamsConfig();
+    const conf = configs.find(c => c.id === activeExam) || configs[0];
+    return conf ? conf.subjects.map(s => s.name) : [];
+  }, []);
+
+  useEffect(() => {
+    if (activeSubjects.length > 0 && !parentTopic) {
+      setParentTopic(activeSubjects[0]);
+    }
+  }, [activeSubjects, parentTopic]);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,22 +154,22 @@ export default function QuestionGenerator({
               Align with Academic Subject
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {TOPICS.map((topic) => {
-                const isSelected = parentTopic === topic.name;
+              {activeSubjects.map((subjectName) => {
+                const isSelected = parentTopic === subjectName;
                 return (
                   <button
-                    key={topic.name}
+                    key={subjectName}
                     type="button"
-                    onClick={() => setParentTopic(topic.name)}
+                    onClick={() => setParentTopic(subjectName)}
                     disabled={isLoading}
                     className={`p-2.5 rounded-lg border text-left text-xs font-semibold cursor-pointer transition-all ${
                       isSelected 
                         ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs' 
                         : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
                     }`}
-                    id={`generator-subject-btn-${topic.name.split(' ').join('-').toLowerCase()}`}
+                    id={`generator-subject-btn-${subjectName.split(' ').join('-').toLowerCase()}`}
                   >
-                    {topic.name}
+                    {subjectName}
                   </button>
                 );
               })}
