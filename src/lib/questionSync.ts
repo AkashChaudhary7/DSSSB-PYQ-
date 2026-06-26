@@ -92,14 +92,14 @@ export async function uploadQuestionsInChunks(
       let lastIndex = -1;
 
       snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
         const docId = docSnap.id;
-        const match = docId.match(/bundle_[^_]+_(\d+)/);
-        if (match) {
-          const idx = parseInt(match[1], 10);
-          if (idx > lastIndex) {
+        const prefix = `bundle_${examId}_`;
+        if (docId.startsWith(prefix)) {
+          const indexStr = docId.substring(prefix.length);
+          const idx = parseInt(indexStr, 10);
+          if (!isNaN(idx) && idx > lastIndex) {
             lastIndex = idx;
-            lastBundleDoc = { id: docSnap.id, ref: docSnap.ref, ...data };
+            lastBundleDoc = { id: docSnap.id, ref: docSnap.ref, ...docSnap.data() };
           }
         }
       });
