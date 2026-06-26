@@ -84,15 +84,37 @@ export default function HomeView({
   // Filter attempts belonging to the current exam
   const examFilteredAttempts = useMemo(() => {
     return attempts.filter(a => {
-      if (a.examId) return a.examId === currentExam;
-      // Fallback: look up first question's exam
+      // 1. Explicit examId match
+      if (a.examId && a.examId === currentExam) return true;
+      
+      // 2. Question-level match
       const firstQ = a.questions?.[0];
-      if (!firstQ) return true;
-      const qObj = questionPool.find(q => q.id === firstQ.questionId);
-      if (!qObj) return true;
-      return !qObj.exam || qObj.exam === currentExam;
+      if (firstQ) {
+        const qObj = questionPool.find(q => q.id === firstQ.questionId);
+        if (qObj && qObj.exam === currentExam) return true;
+      }
+      
+      // 3. Subject-level matching
+      if (currentExamConfig) {
+        const lowerTopic = a.topic?.toLowerCase() || '';
+        const isSubjectOfCurrentExam = currentExamConfig.subjects.some(subj => {
+          const lowerSubj = subj.name.toLowerCase();
+          return lowerTopic === lowerSubj || lowerTopic.includes(lowerSubj) || lowerSubj.includes(lowerTopic);
+        });
+        if (isSubjectOfCurrentExam) return true;
+      }
+      
+      // 4. Mock exam strings fallback
+      if (a.topic?.toLowerCase().includes('mock') || a.subtopic?.toLowerCase().includes('mock')) {
+        return true;
+      }
+
+      // 5. Default fallback if no examId is provided to not lose legacy attempts
+      if (!a.examId) return true;
+
+      return false;
     });
-  }, [attempts, currentExam, questionPool]);
+  }, [attempts, currentExam, questionPool, currentExamConfig]);
 
   // Retrieve today's practice progress
   const todayAttemptsCount = useMemo(() => {
@@ -108,8 +130,36 @@ export default function HomeView({
   const currentSubjectTopics = useMemo(() => {
     if (!currentExamConfig || !activeSubjectTab) return [];
     const subjObj = currentExamConfig.subjects.find(s => s.name === activeSubjectTab);
-    return subjObj ? subjObj.topics : [];
-  }, [currentExamConfig, activeSubjectTab]);
+    const originalTopics = subjObj ? subjObj.topics : [];
+    
+    // Check if there are any questions with empty/missing subtopic, or unmapped subtopics, for this subject
+    const hasUnmappedQuestions = questionPool.some(q => {
+      if (q.exam && q.exam !== currentExam) return false;
+      if (q.topic?.toLowerCase() !== activeSubjectTab?.toLowerCase()) return false;
+      
+      const qSubLower = q.subtopic?.toLowerCase() || '';
+      if (!qSubLower) return true; // empty subtopic is unmapped
+      
+      // Is it predefined in any of original topics?
+      const isPredefined = originalTopics.some(topic => {
+        const tLower = topic.name.toLowerCase();
+        const matchSubtopic = topic.subtopics.some(st => st.toLowerCase() === qSubLower || qSubLower.includes(st.toLowerCase()));
+        return matchSubtopic || qSubLower === tLower || qSubLower.includes(tLower);
+      });
+      return !isPredefined;
+    });
+
+    if (hasUnmappedQuestions) {
+      return [
+        ...originalTopics,
+        {
+          name: 'General & Core Concepts',
+          subtopics: ['General Practice']
+        }
+      ];
+    }
+    return originalTopics;
+  }, [currentExamConfig, activeSubjectTab, questionPool, currentExam]);
 
   const topicCountsMap = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -120,18 +170,27 @@ export default function HomeView({
       if (q.topic?.toLowerCase() !== activeSubjectTab?.toLowerCase()) return;
       
       const qSubLower = q.subtopic?.toLowerCase() || '';
-      currentSubjectTopics.forEach(topic => {
+      let matched = false;
+      
+      // Look for standard predefined topics
+      const originalTopics = currentExamConfig?.subjects.find(s => s.name === activeSubjectTab)?.topics || [];
+      originalTopics.forEach(topic => {
         const tLower = topic.name.toLowerCase();
-        // Check if subtopic is in the topic's subtopics list, or matches topic name
         const matchSubtopic = topic.subtopics.some(st => st.toLowerCase() === qSubLower || qSubLower.includes(st.toLowerCase()));
         
         if (matchSubtopic || qSubLower === tLower || qSubLower.includes(tLower) || q.text?.toLowerCase().includes(tLower)) {
           counts[topic.name] = (counts[topic.name] || 0) + 1;
+          matched = true;
         }
       });
+      
+      // If there are unmapped questions, group them under "General & Core Concepts"
+      if (!matched && currentSubjectTopics.some(t => t.name === 'General & Core Concepts')) {
+        counts['General & Core Concepts'] = (counts['General & Core Concepts'] || 0) + 1;
+      }
     });
     return counts;
-  }, [questionPool, currentExam, activeSubjectTab, currentSubjectTopics]);
+  }, [questionPool, currentExam, activeSubjectTab, currentSubjectTopics, currentExamConfig]);
 
   const totalExamQuestionsCount = useMemo(() => {
     return questionPool.filter(q => !q.exam || q.exam === currentExam).length;
