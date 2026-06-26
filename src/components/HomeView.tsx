@@ -273,17 +273,17 @@ export default function HomeView({
             <h2 className="text-[15px] font-black tracking-tight flex items-center gap-2 font-display">
               Hello, {userProfile?.displayName || 'Scholar'} <span className="animate-pulse">👋</span>
             </h2>
-            <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex items-center gap-2.5 mt-1 flex-nowrap whitespace-nowrap overflow-x-auto no-scrollbar">
               <div className="flex items-center gap-1.5 shrink-0">
-                <span className={`text-[9px] font-mono font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-blue-200'}`}>Target Goal:</span>
+                <span className={`text-[9px] font-mono font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-blue-200'}`}>Goal:</span>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setShowPathSelector(true)}
-                  className="text-[11px] font-extrabold text-amber-300 hover:text-amber-200 underline decoration-amber-300/40 decoration-dotted underline-offset-4 transition-colors cursor-pointer flex items-center gap-1 leading-none"
+                  className="text-[11px] font-extrabold text-amber-300 hover:text-amber-200 underline decoration-amber-300/40 decoration-dotted underline-offset-4 transition-colors cursor-pointer flex items-center gap-0.5 leading-none"
                 >
                   <span>{currentExamConfig?.name || 'Loading goal...'}</span>
-                  <Icons.ChevronDown className="w-3.5 h-3.5 text-amber-300" />
+                  <Icons.ChevronDown className="w-3 h-3 text-amber-300" />
                 </motion.button>
               </div>
 
