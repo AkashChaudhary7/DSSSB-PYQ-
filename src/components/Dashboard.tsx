@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { QuizAttempt, UserProfile, Badge, Question } from '../types';
 import { getBookmarks, getExamsConfig } from '../lib/storage';
+import { getQuestionsCached } from '../lib/indexedDB';
 import * as Icons from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { motion } from 'motion/react';
@@ -55,12 +56,47 @@ export default function Dashboard({
   const [cloudQuestionCount, setCloudQuestionCount] = useState<number | null>(null);
   const [loadingCloudCount, setLoadingCloudCount] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>('Never');
+  const [dbStats, setDbStats] = useState<Record<string, Record<string, number>>>({});
+  const [dbLoading, setDbLoading] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (showDiagnostics) {
       setCloudQuestionCount(questionPool.length);
     }
   }, [showDiagnostics, questionPool.length]);
+
+  useEffect(() => {
+    if (!showDiagnostics) return;
+    
+    let active = true;
+    const fetchDbStats = async () => {
+      setDbLoading(true);
+      try {
+        const cached = await getQuestionsCached();
+        if (!active) return;
+        
+        const stats: Record<string, Record<string, number>> = {};
+        cached.forEach(q => {
+          const examId = q.exam || 'unspecified';
+          const subject = q.topic || 'Unspecified';
+          if (!stats[examId]) {
+            stats[examId] = {};
+          }
+          stats[examId][subject] = (stats[examId][subject] || 0) + 1;
+        });
+        setDbStats(stats);
+      } catch (err) {
+        console.error("Failed to load IndexedDB diagnostics stats:", err);
+      } finally {
+        if (active) setDbLoading(false);
+      }
+    };
+    
+    fetchDbStats();
+    return () => {
+      active = false;
+    };
+  }, [showDiagnostics, questionPool]);
 
   React.useEffect(() => {
     const syncStr = localStorage.getItem('cs_mcq_last_sync_time');
@@ -88,13 +124,37 @@ export default function Dashboard({
 
   const filteredAttempts = useMemo(() => {
     if (!currentExam) return attempts;
-    return attempts.filter(att => {
-      if (att.examId) return att.examId === currentExam;
-      const firstQInfo = att.questions[0];
-      if (!firstQInfo) return true;
-      const questionObj = questionMap.get(firstQInfo.questionId);
-      if (!questionObj) return true;
-      return !questionObj.exam || questionObj.exam === currentExam;
+    const currentConf = getExamsConfig().find(c => c.id === currentExam);
+    return attempts.filter(a => {
+      // 1. Explicit examId match
+      if (a.examId && a.examId === currentExam) return true;
+      
+      // 2. Question-level match
+      const firstQInfo = a.questions?.[0];
+      if (firstQInfo) {
+        const questionObj = questionMap.get(firstQInfo.questionId);
+        if (questionObj && questionObj.exam === currentExam) return true;
+      }
+      
+      // 3. Subject-level matching
+      if (currentConf) {
+        const lowerTopic = a.topic?.toLowerCase() || '';
+        const isSubjectOfCurrentExam = currentConf.subjects.some(subj => {
+          const lowerSubj = subj.name.toLowerCase();
+          return lowerTopic === lowerSubj || lowerTopic.includes(lowerSubj) || lowerSubj.includes(lowerTopic);
+        });
+        if (isSubjectOfCurrentExam) return true;
+      }
+      
+      // 4. Mock exam strings fallback
+      if (a.topic?.toLowerCase().includes('mock') || a.subtopic?.toLowerCase().includes('mock')) {
+        return true;
+      }
+
+      // 5. Default fallback if no examId is provided to not lose legacy attempts
+      if (!a.examId) return true;
+
+      return false;
     });
   }, [attempts, currentExam, questionMap]);
 
@@ -775,6 +835,119 @@ export default function Dashboard({
                 </>
               )}
             </button>
+          </div>
+
+          {/* Real-Time IndexedDB Storage Audit */}
+          <div className="mt-5 pt-4 border-t border-slate-200 dark:border-white/10 text-left">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+              <h4 className="text-[11px] font-black uppercase tracking-wider font-mono flex items-center gap-1.5 text-[#2F69FF] dark:text-[#9EFF33]">
+                <Icons.Database className="w-4 h-4" />
+                Real-Time IndexedDB Storage Audit
+              </h4>
+              <button 
+                onClick={async () => {
+                  setDbLoading(true);
+                  try {
+                    const cached = await getQuestionsCached();
+                    const stats: Record<string, Record<string, number>> = {};
+                    cached.forEach(q => {
+                      const examId = q.exam || 'unspecified';
+                      const subject = q.topic || 'Unspecified';
+                      if (!stats[examId]) stats[examId] = {};
+                      stats[examId][subject] = (stats[examId][subject] || 0) + 1;
+                    });
+                    setDbStats(stats);
+                  } catch (err) {
+                    console.error("Manual storage query failed:", err);
+                  } finally {
+                    setDbLoading(false);
+                  }
+                }}
+                disabled={dbLoading}
+                className={`text-[9px] font-mono font-bold px-2 py-1.5 rounded-lg border transition-all flex items-center gap-1 cursor-pointer select-none ${
+                  theme === 'dark'
+                    ? 'border-white/10 hover:border-white/20 bg-slate-950/40 text-slate-300 hover:text-white'
+                    : 'border-slate-200 hover:border-slate-300 bg-white text-slate-600 hover:text-slate-800 shadow-xs'
+                }`}
+              >
+                <Icons.RefreshCw className={`w-2.5 h-2.5 ${dbLoading ? 'animate-spin text-amber-400' : ''}`} />
+                Force Storage Recalculation
+              </button>
+            </div>
+
+            <p className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400 mb-3.5">
+              The counts below represent verified offline-available exam question items residing in the persistent **IndexedDB** cache of your browser.
+            </p>
+
+            {dbLoading ? (
+              <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
+                <Icons.Loader2 className="w-5 h-5 animate-spin text-indigo-500 dark:text-neon-lime" />
+                <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Querying local database blocks...
+                </span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {getExamsConfig().map((exam) => {
+                  const examStats = (dbStats[exam.id] || {}) as Record<string, number>;
+                  const totalCachedForExam = Object.values(examStats).reduce((a: number, b: number) => a + b, 0);
+                  
+                  return (
+                    <div 
+                      key={exam.id}
+                      className={`p-3.5 rounded-xl border flex flex-col justify-between ${
+                        theme === 'dark' ? 'bg-slate-950/40 border-white/5' : 'bg-white border-slate-200/60 shadow-sm'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-[11px] font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+                            {exam.name}
+                          </span>
+                          <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-lg shrink-0 ${
+                            totalCachedForExam > 0
+                              ? theme === 'dark' ? 'text-neon-lime bg-neon-lime/10' : 'text-emerald-700 bg-emerald-100'
+                              : 'text-rose-500 bg-rose-100 dark:bg-rose-950/20'
+                          }`}>
+                            {totalCachedForExam} Qs Offline
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-1.5 mt-2 border-t pt-2 border-slate-100 dark:border-white/5">
+                          {exam.subjects.map((subj) => {
+                            const count = examStats[subj.name] || 0;
+                            return (
+                              <div key={subj.name} className="flex items-center justify-between text-[10px]">
+                                <span className="opacity-75 font-medium truncate max-w-[180px] text-left">{subj.name}</span>
+                                <span className={`font-mono font-bold ${count > 0 ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400'}`}>
+                                  {count} cached
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {totalCachedForExam > 0 ? (
+                        <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-slate-100 dark:border-white/5">
+                          <Icons.CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          <span className="text-[8.5px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                            Offline Cache Verified & Synced
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-slate-100 dark:border-white/5">
+                          <Icons.AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span className="text-[8.5px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                            Sync Pending (Questions populate upon load)
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </motion.div>
       )}
