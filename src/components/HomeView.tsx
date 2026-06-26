@@ -29,6 +29,7 @@ interface HomeViewProps {
     isMockExam?: boolean,
     customCount?: number
   ) => void;
+  onForceCloudPull?: () => Promise<void>;
 }
 
 export default function HomeView({
@@ -42,7 +43,8 @@ export default function HomeView({
   theme = 'dark',
   onNavigate,
   isAdmin,
-  onSelectSubtopic
+  onSelectSubtopic,
+  onForceCloudPull
 }: HomeViewProps) {
   const [examsConfig, setExamsConfig] = useState<ExamConfig[]>([]);
   const [selectedExams, setSelectedExams] = useState<string[]>([]);
@@ -198,6 +200,22 @@ export default function HomeView({
     return diffDays;
   }, [currentExamConfig]);
 
+  const [isSyncingLocal, setIsSyncingLocal] = useState(false);
+
+  const handleSyncClick = async () => {
+    if (isSyncingLocal) return;
+    setIsSyncingLocal(true);
+    try {
+      if (onForceCloudPull) {
+        await onForceCloudPull();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSyncingLocal(false);
+    }
+  };
+
   const handleSelectExamPath = (examId: string) => {
     onChangeExam(examId);
     try {
@@ -255,8 +273,8 @@ export default function HomeView({
             <h2 className="text-[15px] font-black tracking-tight flex items-center gap-2 font-display">
               Hello, {userProfile?.displayName || 'Scholar'} <span className="animate-pulse">👋</span>
             </h2>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-              <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <span className={`text-[9px] font-mono font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-blue-200'}`}>Target Goal:</span>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -270,23 +288,32 @@ export default function HomeView({
               </div>
 
               {daysLeft !== null && (
-                <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-sm border border-white/10 px-2.5 py-0.5 rounded-lg">
-                  <Icons.Calendar className="w-3 h-3 text-emerald-400 shrink-0" />
-                  <span className={`text-[9px] font-mono font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-350' : 'text-blue-100'}`}>Days:</span>
-                  <span className={`text-[10.5px] font-mono font-black ${daysLeft <= 15 ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`}>
-                    {daysLeft >= 0 ? daysLeft : 'Passed'}
+                <span className="text-white/20 text-xs font-mono shrink-0">|</span>
+              )}
+
+              {daysLeft !== null && (
+                <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-sm border border-white/10 px-2 py-0.5 rounded-lg shrink-0">
+                  <Icons.Calendar className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                  <span className={`text-[9.5px] font-mono font-black ${daysLeft <= 15 ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`}>
+                    {daysLeft >= 0 ? `${daysLeft} Days Left` : 'Passed'}
                   </span>
                 </div>
               )}
             </div>
           </div>
           
-          <div className="bg-black/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5 shrink-0 shadow-inner">
-            <Icons.Sparkles className="w-3 h-3 text-amber-300 fill-amber-300 shrink-0" />
-            <span className="text-[9px] font-black tracking-widest uppercase font-mono text-amber-50">
-              {todayAttemptsCount > 0 ? `${todayAttemptsCount} Streak` : 'Active'}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleSyncClick}
+            disabled={isSyncingLocal || isLoading}
+            className="bg-black/35 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/15 flex items-center gap-1.5 shrink-0 shadow-lg cursor-pointer hover:bg-black/55 hover:border-emerald-400/40 transition-all duration-300"
+          >
+            <Icons.RefreshCw className={`w-3 h-3 text-emerald-400 shrink-0 ${isSyncingLocal || isLoading ? 'animate-spin text-amber-400' : ''}`} />
+            <span className="text-[9px] font-black tracking-widest uppercase font-mono text-emerald-300">
+              {isSyncingLocal || isLoading ? 'Syncing...' : 'Pull Qs'}
             </span>
-          </div>
+          </motion.button>
         </div>
 
         {/* Dynamic miniature stats grid */}
