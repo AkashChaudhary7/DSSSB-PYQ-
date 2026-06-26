@@ -12,6 +12,9 @@ async function run() {
   snapshot.docs.forEach(doc => {
     const data = doc.data();
     console.log(`Bundle ID: ${doc.id}, examId: ${data.examId}, questions length: ${data.questions?.length}, array? ${Array.isArray(data.questions)}`);
+    if (data.questions?.length > 0) {
+      console.log("Sample question:", data.questions[0]);
+    }
   });
   process.exit(0);
 }
