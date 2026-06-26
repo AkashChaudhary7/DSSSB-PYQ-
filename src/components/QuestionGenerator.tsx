@@ -155,7 +155,7 @@ export default function QuestionGenerator({
                         ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs' 
                         : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
                     }`}
-                    id={`generator-subject-btn-${topic.name.replace(/\s+/g, '-').toLowerCase()}`}
+                    id={`generator-subject-btn-${topic.name.split(' ').join('-').toLowerCase()}`}
                   >
                     {topic.name}
                   </button>
