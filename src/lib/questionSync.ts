@@ -167,6 +167,7 @@ export async function uploadQuestionsInChunks(
     }
   } catch (error) {
     console.error('Failed to upload question bundles to Firestore:', error);
+    throw error;
   }
 }
 
