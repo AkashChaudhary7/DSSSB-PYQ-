@@ -16,6 +16,9 @@ import {
 import { 
   initializeFirestore,
   getFirestore, 
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  getDocFromServer,
   doc, 
   setDoc, 
   getDoc, 
@@ -36,7 +39,37 @@ import firebaseConfig from '../../firebase-applet-config.json';
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+// Initialize Firestore with robust persistent local cache for flawless offline operation
+let dbInstance;
+try {
+  dbInstance = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
+  }, firebaseConfig.firestoreDatabaseId);
+  console.log('[Firestore] Successfully initialized with persistent local cache.');
+} catch (e) {
+  console.warn('[Firestore] Failed to initialize with persistent local cache, falling back to standard initialization:', e);
+  dbInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+}
+
+export const db = dbInstance;
+
+// Validate connection to Firestore as required by the Firebase Integration Skill
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+    console.log('[Firestore] Connection validated successfully.');
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.error("Please check your Firebase configuration.");
+    } else {
+      console.info('[Firestore] Offline mode active or connection pending, utilizing offline cache safely.');
+    }
+  }
+}
+testConnection();
 
 // Core initial badges
 export const AVAILABLE_BADGES: Omit<Badge, 'unlockedAt'>[] = [
