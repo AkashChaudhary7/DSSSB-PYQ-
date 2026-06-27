@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as Icons from 'lucide-react';
 import { Question, ExamConfig, ExamSubject, ExamRule } from '../types';
-import { saveCustomQuestions, getExamsConfig, saveExamsConfig, getAllQuestions, AdminActivity, getAdminActivities, logAdminActivity } from '../lib/storage';
+import { saveCustomQuestions, getExamsConfig, saveExamsConfig, getAllQuestions, AdminActivity, getAdminActivities, logAdminActivity, getNormalizedSubject } from '../lib/storage';
 import { uploadQuestionsInChunks } from '../lib/questionSync';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -66,6 +66,27 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
   // -------------------------------------------------------------
   // TAB 1: UPLOAD QUESTIONS LOGIC
   // -------------------------------------------------------------
+  // Board configuration & selection state
+  const [selectedBoard, setSelectedBoard] = useState<'dsssb' | 'rssb' | 'rpsc'>('dsssb');
+  // Upload scope: 'exam_specific' | 'board_common'
+  const [uploadScope, setUploadScope] = useState<'exam_specific' | 'board_common'>('exam_specific');
+
+  const BOARD_EXAMS = useMemo(() => ({
+    dsssb: [
+      { id: 'dsssb_tgt_cs', name: 'DSSSB TGT CS' },
+      { id: 'dsssb_it', name: 'DSSSB IT' }
+    ],
+    rssb: [
+      { id: 'cet_xii', name: 'CET-XII' },
+      { id: 'cet_graduation', name: 'CET-GRADUATION' }
+    ],
+    rpsc: [
+      { id: 'ras_prelims', name: 'RAS PRELIMS' },
+      { id: 'ras_mains', name: 'RAS MAINS' },
+      { id: 'eo_ro', name: 'EO RO' }
+    ]
+  }), []);
+
   const [selectedExam, setSelectedExam] = useState<string>('dsssb_tgt_cs');
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [selectedTopic, setSelectedTopic] = useState<string>('');
@@ -80,10 +101,51 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
   const [successCount, setSuccessCount] = useState<number>(0);
   const [dragActive, setDragActive] = useState<boolean>(false);
 
-  // Load first subject when selectedExam changes
+  // Update selectedExam automatically when board or scope changes
+  useEffect(() => {
+    if (uploadScope === 'board_common') {
+      setSelectedExam(`common_${selectedBoard}`);
+    } else {
+      const exams = BOARD_EXAMS[selectedBoard];
+      if (exams && exams.length > 0) {
+        setSelectedExam(exams[0].id);
+      }
+    }
+  }, [selectedBoard, uploadScope, BOARD_EXAMS]);
+
+  // Load first subject when selectedExam changes (supports Board Common virtual configs)
   const activeExamConfig = useMemo(() => {
+    if (selectedExam.startsWith('common_')) {
+      const board = selectedExam.replace('common_', '') as 'dsssb' | 'rssb' | 'rpsc';
+      const boardExams = BOARD_EXAMS[board] || [];
+      const allSubjects: string[] = [];
+      boardExams.forEach(be => {
+        const conf = examsConfig.find(e => e.id === be.id);
+        if (conf) {
+          conf.subjects.forEach(s => {
+            if (!allSubjects.includes(s.name)) {
+              allSubjects.push(s.name);
+            }
+          });
+        }
+      });
+      // Fallbacks
+      if (allSubjects.length === 0) {
+        if (board === 'dsssb') {
+          allSubjects.push('Reasoning', 'Quantitative Aptitude', 'Hindi', 'English', 'General Studies (GS)', 'Computer Science');
+        } else {
+          allSubjects.push('Rajasthan GK', 'Reasoning & Mental Ability', 'General Science', 'Hindi', 'English', 'Quantitative Aptitude & Reasoning');
+        }
+      }
+      return {
+        id: selectedExam,
+        name: `${board.toUpperCase()} Common Syllabus`,
+        subjects: allSubjects.map(name => ({ name, topics: [] })),
+        rules: { numQuestions: 100, timeLimitMinutes: 100, negativeMarking: 0, subjectAllotments: {} }
+      } as unknown as ExamConfig;
+    }
     return examsConfig.find(e => e.id === selectedExam) || examsConfig[0];
-  }, [examsConfig, selectedExam]);
+  }, [examsConfig, selectedExam, selectedBoard, BOARD_EXAMS]);
 
   const activeSubjects = useMemo(() => {
     if (!activeExamConfig) return [];
@@ -284,7 +346,22 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
 
     let items: any[] = [];
     if (data && typeof data === 'object') {
-      if (Array.isArray(data.sections)) {
+      const keys = Object.keys(data);
+      const isGroupedBySubject = keys.length > 0 && keys.every(k => Array.isArray(data[k]));
+
+      if (isGroupedBySubject) {
+        for (const subjName of keys) {
+          const list = data[subjName];
+          for (const q of list) {
+            if (q && typeof q === 'object') {
+              items.push({
+                ...q,
+                parsedSubject: subjName
+              });
+            }
+          }
+        }
+      } else if (Array.isArray(data.sections)) {
         for (const section of data.sections) {
           if (section && Array.isArray(section.questions)) {
             for (const q of section.questions) {
@@ -438,8 +515,9 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
         options: opts,
         correctIndex: correctIdx,
         explanation: item.explanation ? String(item.explanation).trim() : 'No explanation provided.',
-        difficulty: (item.difficulty === 'easy' || item.difficulty === 'hard') ? item.difficulty : 'medium'
-      });
+        difficulty: (item.difficulty === 'easy' || item.difficulty === 'hard') ? item.difficulty : 'medium',
+        parsedSubject: item.parsedSubject
+      } as any);
     }
 
     return results;
@@ -466,16 +544,73 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
 
       const finalSubtopic = useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic;
 
-      const completedQuestions: Question[] = results.map((q, idx) => ({
-        ...q,
-        id: `uploaded-${Date.now()}-${idx}-${Math.floor(Math.random() * 10000)}`,
-        topic: selectedSubject,
-        subtopic: finalSubtopic,
-        exam: selectedExam,
-        part: 'B',
-        isCustom: true,
-        source: 'User Upload'
-      }));
+      const completedQuestions: Question[] = results.map((q: any, idx) => {
+        let resolvedTopic = selectedSubject;
+        let resolvedSubtopic = useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic;
+
+        // If the question had an intelligently parsed subject from the file key:
+        if (q.parsedSubject) {
+          const normalizedInputSubject = getNormalizedSubject(q.parsedSubject);
+          
+          // Let's map it intelligently based on our target exam or board common scope
+          if (selectedExam.startsWith('common_')) {
+            // It is board common! Map to the standard display name for that subject
+            if (normalizedInputSubject === 'reasoning') resolvedTopic = 'Reasoning';
+            else if (normalizedInputSubject === 'quant') resolvedTopic = 'Quantitative Aptitude';
+            else if (normalizedInputSubject === 'hindi') resolvedTopic = 'Hindi';
+            else if (normalizedInputSubject === 'english') resolvedTopic = 'English';
+            else if (normalizedInputSubject === 'computer_science') resolvedTopic = 'Computer Science';
+            else if (normalizedInputSubject === 'gs') resolvedTopic = 'General Studies (GS)';
+            else resolvedTopic = q.parsedSubject;
+          } else {
+            // It is an exam-specific upload! Map to the closest subject of the selected exam
+            if (activeExamConfig) {
+              const matchedSubj = activeExamConfig.subjects.find(s => 
+                getNormalizedSubject(s.name) === normalizedInputSubject
+              );
+              if (matchedSubj) {
+                resolvedTopic = matchedSubj.name;
+              } else {
+                resolvedTopic = q.parsedSubject;
+              }
+            } else {
+              resolvedTopic = q.parsedSubject;
+            }
+          }
+
+          // Apart from subject, if a subtopic is explicitly defined in the file, use it.
+          // Otherwise, if the user typed a custom subtopic, use it.
+          // Otherwise, empty string so it falls directly under the subject.
+          const fileSubtopic = q.subtopic || q.sub_topic || q.section_unit || q.unit || '';
+          if (fileSubtopic) {
+            resolvedSubtopic = fileSubtopic.trim();
+          } else if (useCustomSubtopic && customSubtopic.trim()) {
+            resolvedSubtopic = customSubtopic.trim();
+          } else {
+            resolvedSubtopic = ''; // fallback directly to subject level
+          }
+        } else {
+          // No parsedSubject in JSON. Just use the dropdown values selected by user
+          if (q.subtopic || q.sub_topic) {
+            resolvedSubtopic = (q.subtopic || q.sub_topic).trim();
+          }
+        }
+
+        return {
+          text: q.text,
+          options: q.options,
+          correctIndex: q.correctIndex,
+          explanation: q.explanation,
+          difficulty: q.difficulty || 'medium',
+          id: `uploaded-${Date.now()}-${idx}-${Math.floor(Math.random() * 10000)}`,
+          topic: resolvedTopic,
+          subtopic: resolvedSubtopic,
+          exam: selectedExam,
+          part: 'B',
+          isCustom: true,
+          source: 'User Upload'
+        };
+      });
 
       setParsedQuestions(completedQuestions);
     } catch (err: any) {
@@ -1100,19 +1235,80 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
           <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl p-4 space-y-3.5">
             <h3 className="text-xs font-extrabold tracking-wider uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5 leading-none font-mono">
               <Icons.Tag className="w-3.5 h-3.5 text-indigo-500" />
-              1. CATEGORIZATION PARAMETERS
+              1. BOARD & CATEGORIZATION PARAMETERS
             </h3>
 
+            {/* Step 1: Select Board & Scope */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pb-3 border-b border-slate-200 dark:border-white/5">
+              <div>
+                <label className="block text-[9.5px] font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase font-mono">Select Board</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBoard('dsssb')}
+                    className={`flex-1 py-2 px-3 rounded-lg border font-bold text-xs transition-all ${selectedBoard === 'dsssb' ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    Delhi (DSSSB)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBoard('rssb')}
+                    className={`flex-1 py-2 px-3 rounded-lg border font-bold text-xs transition-all ${selectedBoard === 'rssb' ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    Raj (RSSB)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBoard('rpsc')}
+                    className={`flex-1 py-2 px-3 rounded-lg border font-bold text-xs transition-all ${selectedBoard === 'rpsc' ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    Raj (RPSC)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[9.5px] font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase font-mono">Upload Target Scope</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setUploadScope('exam_specific')}
+                    className={`flex-1 py-2 px-3 rounded-lg border font-bold text-xs transition-all ${uploadScope === 'exam_specific' ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    Exam Specific
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadScope('board_common')}
+                    className={`flex-1 py-2 px-3 rounded-lg border font-bold text-xs transition-all ${uploadScope === 'board_common' ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    Common Syllabus
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2: Subject, Topic, Subtopic Selection */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div>
-                <label className="block text-[9.5px] font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase font-mono">Target Exam</label>
-                <select 
-                  value={selectedExam}
-                  onChange={(e) => setSelectedExam(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg p-2 text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500"
-                >
-                  {examsConfig.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
-                </select>
+                <label className="block text-[9.5px] font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase font-mono">
+                  {uploadScope === 'board_common' ? 'Target Board Bank' : 'Target Exam'}
+                </label>
+                {uploadScope === 'board_common' ? (
+                  <div className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg p-2 text-slate-800 dark:text-slate-300 font-bold font-mono">
+                    {selectedBoard.toUpperCase()} (Common Syllabus)
+                  </div>
+                ) : (
+                  <select 
+                    value={selectedExam}
+                    onChange={(e) => setSelectedExam(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg p-2 text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500"
+                  >
+                    {(BOARD_EXAMS[selectedBoard] || []).map(ex => (
+                      <option key={ex.id} value={ex.id}>{ex.name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div>
@@ -1174,6 +1370,14 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
                   {activeSubtopics.length === 0 && <option value="General Theory">General Theory (Default)</option>}
                 </select>
               )}
+            </div>
+
+            <div className="mt-3.5 bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-3 flex items-start gap-2.5">
+              <Icons.Sparkles className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+              <div className="text-[10px] leading-relaxed text-slate-600 dark:text-slate-350">
+                <span className="font-extrabold text-indigo-600 dark:text-indigo-400">System Intelligence Enabled:</span>
+                {" "}If you upload a grouped JSON file where the keys are subject names (e.g. <code className="px-1 py-0.5 bg-indigo-500/10 rounded font-mono text-indigo-500 text-[9px]">"General intelligence and Reasoning Ability"</code>), the system will intelligently auto-map each section's questions to the correct normalized subject (Reasoning, Math, Hindi, etc.) and assign any inline subtopics, completely overriding manual dropdown choices!
+              </div>
             </div>
           </div>
 
