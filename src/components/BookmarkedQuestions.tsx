@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Question, BookmarkedQuestion, WrongQuestion } from '../types';
-import { getBookmarks, getWrongQuestions } from '../lib/storage';
+import { getBookmarks, getWrongQuestions, isQuestionForExam, getExamsConfig } from '../lib/storage';
 import * as Icons from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -50,6 +50,10 @@ export default function BookmarkedQuestions({
     return map;
   }, [questionPool]);
 
+  const currentExamConfig = useMemo(() => {
+    return getExamsConfig().find(e => e.id === currentExam);
+  }, [currentExam]);
+
   // Filter full question objects based on bookmarks
   const bookmarkedQuestionsList = useMemo(() => {
     return bookmarks
@@ -57,8 +61,8 @@ export default function BookmarkedQuestions({
         const q = questionMap.get(b.questionId);
         return q ? { ...q, addedAt: b.bookmarkedAt } : null;
       })
-      .filter((q): q is Question & { addedAt: string } => q !== null && (!q.exam || q.exam === currentExam));
-  }, [bookmarks, questionMap, currentExam]);
+      .filter((q): q is Question & { addedAt: string } => q !== null && isQuestionForExam(q, currentExam, currentExamConfig));
+  }, [bookmarks, questionMap, currentExam, currentExamConfig]);
 
   // Filter full question objects based on wrong questions
   const wrongQuestionsList = useMemo(() => {
@@ -67,8 +71,8 @@ export default function BookmarkedQuestions({
         const q = questionMap.get(w.questionId);
         return q ? { ...q, addedAt: w.addedAt } : null;
       })
-      .filter((q): q is Question & { addedAt: string } => q !== null && q.exam === currentExam);
-  }, [wrongQs, questionMap, currentExam]);
+      .filter((q): q is Question & { addedAt: string } => q !== null && isQuestionForExam(q, currentExam, currentExamConfig));
+  }, [wrongQs, questionMap, currentExam, currentExamConfig]);
 
   // Group the current selected list of questions by topic
   const groupedTopics = useMemo(() => {
