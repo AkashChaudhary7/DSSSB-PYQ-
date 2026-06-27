@@ -72,14 +72,19 @@ export function saveExamsConfig(configs: ExamConfig[]): void {
 export function getSelectedExams(): string[] {
   try {
     const raw = localStorage.getItem(SELECTED_EXAMS_KEY);
+    const availableExams = getExamsConfig().map(e => e.id);
+    const defaultExams = ['dsssb_tgt_cs', 'dsssb_it'].filter(id => availableExams.includes(id));
+    const fallback = defaultExams.length > 0 ? defaultExams : (availableExams.length > 0 ? [availableExams[0]] : ['dsssb_tgt_cs']);
+
     if (!raw) {
-      return ['dsssb_tgt_cs', 'dsssb_it']; // default selection
+      return fallback;
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length >= 1) {
-      return parsed;
+      const valid = parsed.filter(id => availableExams.includes(id));
+      if (valid.length > 0) return valid;
     }
-    return ['dsssb_tgt_cs', 'dsssb_it'];
+    return fallback;
   } catch (e) {
     console.error('Failed to parse selected exams', e);
     return ['dsssb_tgt_cs', 'dsssb_it'];
@@ -262,3 +267,73 @@ export function clearAllUserData(): void {
   localStorage.removeItem(BOOKMARKS_KEY);
   localStorage.removeItem(WRONG_QUESTIONS_KEY);
 }
+
+// Normalize subject names to allow common question banks
+export function getNormalizedSubject(subjectName: string): string {
+  const s = subjectName.toLowerCase().trim();
+  
+  if (s.includes('reasoning') || s.includes('intelligence') || s.includes('logical') || s.includes('mental ability')) {
+    return 'reasoning';
+  }
+  if (s.includes('quantitative') || s.includes('arithmetic') || s.includes('math') || s.includes('numerical')) {
+    return 'quant';
+  }
+  if (s.includes('general studies') || s.includes('general awareness') || s.includes('gk') || s.includes('general knowledge') || s.includes('gs') || s.includes('social science')) {
+    return 'gs';
+  }
+  if (s.includes('hindi')) {
+    return 'hindi';
+  }
+  if (s.includes('english')) {
+    return 'english';
+  }
+  if (s.includes('computer') || s.includes('programming') || s.includes('web tech') || s === 'it' || s.includes('information technology') || s.includes('cs')) {
+    return 'computer_science';
+  }
+  return s;
+}
+
+export function getBoardOfExam(examId: string): string {
+  const id = examId.toLowerCase();
+  if (id.startsWith('dsssb')) return 'dsssb';
+  if (id.startsWith('cet')) return 'rssb';
+  if (id.startsWith('ras') || id === 'eo_ro') return 'rpsc';
+  if (id.startsWith('common_')) return id.replace('common_', '');
+  return 'other';
+}
+
+// Smart filter to check if a question is valid/shared for a specific exam
+export function isQuestionForExam(q: Question, examId: string, examConfig?: ExamConfig): boolean {
+  // 1. If it's a mock upload (PYQ), it must strictly match the exam ID to avoid mock contamination
+  if (q.source === 'Mock Upload') {
+    return q.exam === examId;
+  }
+  
+  // 2. If it was uploaded directly for this exam, always allow
+  if (q.exam === examId) {
+    return true;
+  }
+
+  // 3. Board specific rules: DSSSB, RSSB, RPSC isolation
+  const targetBoard = getBoardOfExam(examId);
+  const qBoard = q.exam && q.exam.startsWith('common_') ? q.exam.replace('common_', '') : getBoardOfExam(q.exam || '');
+
+  // If both boards are resolved and they do not match, strictly do not show (ensure dsssb doesn't mix with rajasthan and vice versa)
+  if (targetBoard !== 'other' && qBoard !== 'other' && targetBoard !== qBoard) {
+    return false;
+  }
+  
+  // 4. If they are in the same board or one is 'other', check if they share a matching subject
+  if (q.topic && examConfig) {
+    const qNorm = getNormalizedSubject(q.topic);
+    const hasMatchingSubject = examConfig.subjects.some(subj => 
+      getNormalizedSubject(subj.name) === qNorm
+    );
+    if (hasMatchingSubject) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
