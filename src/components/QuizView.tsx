@@ -9,7 +9,7 @@ import { toggleBookmark, getBookmarks, getQuizAttempts } from '../lib/storage';
 import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-import { getExamsConfig } from '../lib/storage';
+import { getExamsConfig, isQuestionForExam, getNormalizedSubject } from '../lib/storage';
 
 interface QuizViewProps {
   topic: string; // "Full Mock" or Subject Name
@@ -80,7 +80,11 @@ export default function QuizView({
       if (activeExamConfig) {
         activeExamConfig.subjects.forEach((subj) => {
           const allotment = activeExamConfig.rules.subjectAllotments[subj.name] || 0;
-          const subQs = questionPool.filter(q => q.topic.toLowerCase() === subj.name.toLowerCase() && (q.exam === examType));
+          const targetSubjNorm = getNormalizedSubject(subj.name);
+          const subQs = questionPool.filter(q => 
+            getNormalizedSubject(q.topic) === targetSubjNorm && 
+            isQuestionForExam(q, examType, activeExamConfig)
+          );
           
           // Use the actual pattern allotment! If there are enough questions in the pool, use allotment.
           const targetCount = Math.min(allotment, subQs.length);
@@ -97,7 +101,7 @@ export default function QuizView({
 
       // If pool was sparse, add random fallback questions of the current exam to ensure a good study flow
       if (list.length < 5) {
-        const fallbackQs = questionPool.filter(q => q.exam === examType);
+        const fallbackQs = questionPool.filter(q => isQuestionForExam(q, examType, activeExamConfig));
         const shuffledFallback = [...fallbackQs];
         for (let i = shuffledFallback.length - 1; i > 0 && (shuffledFallback.length - i) <= 15; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -110,15 +114,17 @@ export default function QuizView({
       list = questionPool.filter(q => q.exam === examType && q.subtopic === subtopic);
     } else {
       // Direct subject/subtopic practice mode
-      // Filter strictly to current exam questions
-      let filtered = questionPool.filter(q => q.exam === examType);
+      // Filter to current exam questions including shared common subject questions
+      let filtered = questionPool.filter(q => isQuestionForExam(q, examType, activeExamConfig));
       if (topic !== 'All Subjects' && topic !== 'Entire Syllabus' && !topic.includes('Entire Syllabus')) {
         // Special mapping for Computer Science topic grouping
         if (topic === 'Computer Science') {
           const csKeywords = ['Computer Science', 'Operating Systems', 'Computer Networks', 'Database Systems', 'Data Structures & Algos'];
           filtered = filtered.filter(q => csKeywords.includes(q.topic));
         } else {
-          filtered = filtered.filter(q => q.topic.toLowerCase() === topic.toLowerCase());
+          // Compare normalized subjects to allow shared question banks
+          const targetSubjNorm = getNormalizedSubject(topic);
+          filtered = filtered.filter(q => getNormalizedSubject(q.topic) === targetSubjNorm);
         }
       }
       if (subtopic !== 'All Subtopics' && subtopic !== 'All Section Units' && !subtopic.includes('All Section Units')) {
