@@ -6,7 +6,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Question, ExamConfig } from '../types';
 import * as Icons from 'lucide-react';
-import { getExamsConfig, getSelectedExams } from '../lib/storage';
+import { getExamsConfig, getSelectedExams, isQuestionForExam, getNormalizedSubject } from '../lib/storage';
 
 interface TopicSelectorProps {
   currentExam: string;
@@ -66,10 +66,15 @@ export default function TopicSelector({
     const subCounts: Record<string, number> = {};
     
     questionPool.forEach(q => {
-      if (q.exam && q.exam !== currentExam) return;
+      if (!isQuestionForExam(q, currentExam, currentExamConfig || undefined)) return;
       if (!q.topic) return;
       
-      const topicLower = q.topic.toLowerCase();
+      const qNorm = getNormalizedSubject(q.topic);
+      // Map back to the exact subject name configured for the current exam (if any)
+      const currentSubjects = currentExamConfig?.subjects.map(s => s.name) || [];
+      const matchedSubject = currentSubjects.find(s => getNormalizedSubject(s) === qNorm);
+      const topicLower = matchedSubject ? matchedSubject.toLowerCase() : qNorm;
+      
       counts[topicLower] = (counts[topicLower] || 0) + 1;
       
       if (q.subtopic) {
@@ -78,7 +83,7 @@ export default function TopicSelector({
       }
     });
     return { counts, subCounts };
-  }, [questionPool, currentExam]);
+  }, [questionPool, currentExam, currentExamConfig]);
 
   const subjectCountsMap = topicCountsMap.counts;
   const subtopicCountsMap = topicCountsMap.subCounts;
