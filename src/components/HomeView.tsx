@@ -5,7 +5,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { Question, QuizAttempt, Badge, ExamConfig } from '../types';
-import { getBookmarks, getExamsConfig, getSelectedExams, saveSelectedExams } from '../lib/storage';
+import { getBookmarks, getExamsConfig, getSelectedExams, saveSelectedExams, isQuestionForExam, getNormalizedSubject } from '../lib/storage';
 import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import GlobalSearch from './GlobalSearch';
@@ -134,8 +134,8 @@ export default function HomeView({
     
     // Check if there are any questions with empty/missing subtopic, or unmapped subtopics, for this subject
     const hasUnmappedQuestions = questionPool.some(q => {
-      if (q.exam && q.exam !== currentExam) return false;
-      if (q.topic?.toLowerCase() !== activeSubjectTab?.toLowerCase()) return false;
+      if (!isQuestionForExam(q, currentExam, currentExamConfig)) return false;
+      if (getNormalizedSubject(q.topic) !== getNormalizedSubject(activeSubjectTab || '')) return false;
       
       const qSubLower = q.subtopic?.toLowerCase() || '';
       if (!qSubLower) return true; // empty subtopic is unmapped
@@ -166,8 +166,8 @@ export default function HomeView({
     if (!currentSubjectTopics || currentSubjectTopics.length === 0) return counts;
     
     questionPool.forEach(q => {
-      if (q.exam && q.exam !== currentExam) return;
-      if (q.topic?.toLowerCase() !== activeSubjectTab?.toLowerCase()) return;
+      if (!isQuestionForExam(q, currentExam, currentExamConfig)) return;
+      if (getNormalizedSubject(q.topic) !== getNormalizedSubject(activeSubjectTab || '')) return;
       
       const qSubLower = q.subtopic?.toLowerCase() || '';
       let matched = false;
@@ -193,8 +193,8 @@ export default function HomeView({
   }, [questionPool, currentExam, activeSubjectTab, currentSubjectTopics, currentExamConfig]);
 
   const totalExamQuestionsCount = useMemo(() => {
-    return questionPool.filter(q => !q.exam || q.exam === currentExam).length;
-  }, [questionPool, currentExam]);
+    return questionPool.filter(q => isQuestionForExam(q, currentExam, currentExamConfig)).length;
+  }, [questionPool, currentExam, currentExamConfig]);
 
   const overallAccuracy = useMemo(() => {
     const totalCount = examFilteredAttempts.reduce((acc, a) => acc + a.questionsCount, 0);
@@ -209,11 +209,11 @@ export default function HomeView({
   const subjectQuestionsCountMap = useMemo(() => {
     const counts: Record<string, number> = {};
     questionPool.forEach(q => {
-      if (q.exam && q.exam !== currentExam) return;
+      if (!isQuestionForExam(q, currentExam, currentExamConfig)) return;
       if (q.topic) {
-        const topicLower = q.topic.toLowerCase();
-        // Since we want the display name from subjectsList, map via lowercase
-        const matchSubj = subjectsList.find(s => s.toLowerCase() === topicLower);
+        const topicNorm = getNormalizedSubject(q.topic);
+        // Since we want the display name from subjectsList, map via normalized
+        const matchSubj = subjectsList.find(s => getNormalizedSubject(s) === topicNorm);
         if (matchSubj) {
             counts[matchSubj] = (counts[matchSubj] || 0) + 1;
         }
@@ -224,7 +224,7 @@ export default function HomeView({
         if (counts[subj] === undefined) counts[subj] = 0;
     });
     return counts;
-  }, [questionPool, subjectsList, currentExam]);
+  }, [questionPool, subjectsList, currentExam, currentExamConfig]);
 
   const mockAverageStats = useMemo(() => {
     if (!currentExamConfig) return null;
