@@ -472,6 +472,48 @@ export default function HomeView({
         </motion.div>
       )}
 
+      {/* Interactive Practice Now Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.15 }}
+        onClick={() => onNavigate('practice')}
+        className={`p-4 rounded-2xl border cursor-pointer group transition-all duration-300 relative overflow-hidden flex items-center justify-between gap-4 select-none ${
+          theme === 'dark'
+            ? 'bg-gradient-to-r from-indigo-950/20 via-slate-900/40 to-indigo-950/20 border-white/5 hover:border-neon-lime/30 hover:shadow-[0_0_20px_rgba(158,255,51,0.1)]'
+            : 'bg-gradient-to-r from-blue-50/60 via-indigo-50/30 to-blue-50/60 border-slate-200/60 hover:border-blue-400/50 hover:shadow-md'
+        }`}
+      >
+        {/* Glow effect on hover */}
+        <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 bg-gradient-to-r ${theme === 'dark' ? 'from-neon-lime to-indigo-500' : 'from-blue-400 to-indigo-500'}`} />
+
+        <div className="flex items-center gap-3 relative z-10">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-105 ${
+            theme === 'dark' 
+              ? 'bg-neon-lime/10 text-neon-lime border border-neon-lime/20' 
+              : 'bg-blue-100 text-blue-600 border border-blue-200 shadow-sm'
+          }`}>
+            <Icons.Play className="w-5 h-5 ml-0.5 animate-pulse text-indigo-500 dark:text-neon-lime" />
+          </div>
+          <div className="text-left">
+            <h4 className={`text-[12.5px] font-black tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+              Interactive Study Arena
+            </h4>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+              Create custom subject quizzes, PYQs, and test simulations.
+            </p>
+          </div>
+        </div>
+
+        <div className={`p-2 rounded-xl transition-all duration-300 ${
+          theme === 'dark' 
+            ? 'bg-white/5 group-hover:bg-neon-lime group-hover:text-black text-slate-400' 
+            : 'bg-slate-100 group-hover:bg-blue-600 group-hover:text-white text-slate-600'
+        }`}>
+          <Icons.ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+        </div>
+      </motion.div>
+
       {/* Global Search Component */}
       <GlobalSearch
         theme={theme}
