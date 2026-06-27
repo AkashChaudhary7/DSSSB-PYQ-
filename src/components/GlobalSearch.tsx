@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import * as Icons from 'lucide-react';
 import { Question } from '../types';
 import { EXAMS_PRESET } from '../data/examsPreset';
+import { isQuestionForExam } from '../lib/storage';
 
 interface GlobalSearchProps {
   theme: 'light' | 'dark';
@@ -55,8 +56,8 @@ export default function GlobalSearch({
 
   // Compute matches based on query
   const examQuestions = useMemo(() => {
-    return questionPool.filter((q) => !q.exam || q.exam === currentExam);
-  }, [questionPool, currentExam]);
+    return questionPool.filter((q) => isQuestionForExam(q, currentExam, currentExamConfig));
+  }, [questionPool, currentExam, currentExamConfig]);
 
   const searchResults = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
