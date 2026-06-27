@@ -80,10 +80,10 @@ export default function QuizView({
       if (activeExamConfig) {
         activeExamConfig.subjects.forEach((subj) => {
           const allotment = activeExamConfig.rules.subjectAllotments[subj.name] || 0;
-          const subQs = questionPool.filter(q => q.topic.toLowerCase() === subj.name.toLowerCase() && (!q.exam || q.exam === examType));
+          const subQs = questionPool.filter(q => q.topic.toLowerCase() === subj.name.toLowerCase() && (q.exam === examType));
           
-          // Scaled fraction (max 6 per subject to avoid huge client-side quizzes, min 2)
-          const targetCount = Math.max(2, Math.min(allotment, 6));
+          // Use the actual pattern allotment! If there are enough questions in the pool, use allotment.
+          const targetCount = Math.min(allotment, subQs.length);
           
           // Fast random sampling
           const shuffled = [...subQs];
@@ -97,7 +97,7 @@ export default function QuizView({
 
       // If pool was sparse, add random fallback questions of the current exam to ensure a good study flow
       if (list.length < 5) {
-        const fallbackQs = questionPool.filter(q => !q.exam || q.exam === examType);
+        const fallbackQs = questionPool.filter(q => q.exam === examType);
         const shuffledFallback = [...fallbackQs];
         for (let i = shuffledFallback.length - 1; i > 0 && (shuffledFallback.length - i) <= 15; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -110,7 +110,8 @@ export default function QuizView({
       list = questionPool.filter(q => q.exam === examType && q.subtopic === subtopic);
     } else {
       // Direct subject/subtopic practice mode
-      let filtered = questionPool;
+      // Filter strictly to current exam questions
+      let filtered = questionPool.filter(q => q.exam === examType);
       if (topic !== 'All Subjects' && topic !== 'Entire Syllabus' && !topic.includes('Entire Syllabus')) {
         // Special mapping for Computer Science topic grouping
         if (topic === 'Computer Science') {
@@ -144,6 +145,19 @@ export default function QuizView({
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
       list = shuffled.slice(Math.max(0, shuffled.length - itemsToPick));
+    }
+
+    // Sort final list of questions subject-wise to match official section-wise TCS pattern
+    if (activeExamConfig && list.length > 0) {
+      const subjectOrder = activeExamConfig.subjects.map(s => s.name.toLowerCase());
+      list.sort((a, b) => {
+        const idxA = subjectOrder.indexOf(a.topic.toLowerCase());
+        const idxB = subjectOrder.indexOf(b.topic.toLowerCase());
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return 0;
+      });
     }
 
     setQuestions(list);
