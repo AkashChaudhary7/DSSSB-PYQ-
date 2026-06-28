@@ -1,7 +1,6 @@
-import { db, auth } from './firebase';
-import { Question } from '../types';
-import { getQuestionsCached, saveQuestionsCached } from './indexedDB';
 import { 
+  db, 
+  auth,
   collection, 
   getDocs, 
   query, 
@@ -10,8 +9,10 @@ import {
   limit, 
   startAfter,
   writeBatch, 
-  doc 
-} from 'firebase/firestore';
+  doc
+} from './firebase';
+import { Question } from '../types';
+import { getQuestionsCached, saveQuestionsCached } from './indexedDB';
 
 enum OperationType {
   CREATE = 'create',
@@ -99,7 +100,7 @@ export async function uploadQuestionsInChunks(
           const idx = parseInt(indexStr, 10);
           if (!isNaN(idx) && idx > lastIndex) {
             lastIndex = idx;
-            lastBundleDoc = { id: docSnap.id, ref: docSnap.ref, ...docSnap.data() };
+            lastBundleDoc = { id: docSnap.id, ref: docSnap.ref, ...(docSnap.data() as object) };
           }
         }
       });
