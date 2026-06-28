@@ -8,7 +8,12 @@ import {
   getUserProfile, 
   getUserAttempts, 
   getUserBookmarks, 
-  getUserWrongQuestions 
+  getUserWrongQuestions,
+  dbMonitor,
+  collection,
+  getDocs,
+  query,
+  limit
 } from './firebase';
 import { 
   saveAllAttempts, 
@@ -21,7 +26,7 @@ import {
 } from './indexedDB';
 import { syncQuestionsFromFirestore } from './questionSync';
 import { Question, QuizAttempt, BookmarkedQuestion, WrongQuestion, UserProfile } from '../types';
-import { getCountFromServer, collection, getDocs, query, limit } from 'firebase/firestore';
+import { getCountFromServer } from 'firebase/firestore';
 
 const LAST_SYNC_KEY = 'cs_mcq_questions_last_sync_timestamp';
 
@@ -150,8 +155,12 @@ export async function forceCloudPull(
  * Highly efficient count retrieval of the total questions present in the global Firestore collection.
  */
 export async function getCloudQuestionCount(): Promise<number> {
+  if (dbMonitor.isBypassed()) {
+    throw new Error('Firestore Quota Exhausted: Bypassed by Administrator (Simulated offline mode).');
+  }
   try {
     const coll = collection(db, 'questions');
+    dbMonitor.incrementReads(1);
     const snapshot = await getCountFromServer(coll);
     return snapshot.data().count;
   } catch (error) {
