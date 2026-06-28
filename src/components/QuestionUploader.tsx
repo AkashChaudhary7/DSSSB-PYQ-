@@ -100,6 +100,8 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successCount, setSuccessCount] = useState<number>(0);
   const [dragActive, setDragActive] = useState<boolean>(false);
+  const [isParsing, setIsParsing] = useState<boolean>(false);
+  const [parsingProgress, setParsingProgress] = useState<number>(0);
 
   // Update selectedExam automatically when board or scope changes
   useEffect(() => {
@@ -336,7 +338,10 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
     return list;
   };
 
-  const validateAndParseJSON = (jsonString: string): Omit<Question, 'id' | 'topic' | 'subtopic' | 'exam' | 'part'>[] => {
+  const validateAndParseJSONAsync = async (
+    jsonString: string,
+    onProgress: (percent: number) => void
+  ): Promise<Omit<Question, 'id' | 'topic' | 'subtopic' | 'exam' | 'part'>[]> => {
     let data: any;
     try {
       data = JSON.parse(jsonString);
@@ -396,15 +401,20 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
     }
 
     const results: Omit<Question, 'id' | 'topic' | 'subtopic' | 'exam' | 'part'>[] = [];
+    const totalItems = items.length;
 
-    for (let i = 0; i < items.length; i++) {
+    for (let i = 0; i < totalItems; i++) {
+      // Yield to the main thread every 500 items to avoid freezing/lagging
+      if (i > 0 && i % 500 === 0) {
+        onProgress(Math.round((i / totalItems) * 100));
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+
       const item = items[i];
-      const indexStr = items.length > 1 ? `at index ${i}` : "";
       
       // 1. Resolve question text
       let questionText = item.question || item.text || item.q || item.question_text || item.title || item.desc || "";
       if (typeof questionText !== 'string' || questionText.trim() === '') {
-        // Find the first string property on item that is non-empty
         const stringKeys = Object.keys(item).filter(k => typeof item[k] === 'string' && item[k].trim().length > 0);
         if (stringKeys.length > 0) {
           const bestKey = stringKeys.find(k => k.toLowerCase().includes('quest') || k.toLowerCase().includes('text')) || stringKeys[0];
@@ -417,7 +427,6 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
       // 2. Resolve options array
       let rawOptions = item.options || item.choices || item.answers || item.opts || item.options_list;
       if (!rawOptions || !Array.isArray(rawOptions)) {
-        // Find the first array property
         const arrayKeys = Object.keys(item).filter(k => Array.isArray(item[k]));
         if (arrayKeys.length > 0) {
           rawOptions = item[arrayKeys[0]];
@@ -520,18 +529,19 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
       } as any);
     }
 
+    onProgress(100);
     return results;
   };
 
   // Process files
-  const processUploadedContent = (fileContent: string, format: 'json' | 'html' | 'txt') => {
+  const processUploadedContent = async (fileContent: string, format: 'json' | 'html' | 'txt') => {
     setErrorMsg(null);
     setParsedQuestions([]);
     
     try {
       let results: Omit<Question, 'id' | 'topic' | 'subtopic' | 'exam' | 'part'>[] = [];
       if (format === 'json') {
-        results = validateAndParseJSON(fileContent);
+        results = await validateAndParseJSONAsync(fileContent, () => {});
       } else if (format === 'html') {
         results = parseHTMLText(fileContent);
       } else {
@@ -658,6 +668,8 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
     setFileName(limitedFiles.map(f => f.name).join(', '));
     setErrorMsg(null);
     setParsedQuestions([]);
+    setIsParsing(true);
+    setParsingProgress(0);
     
     let allCombinedQuestions: Omit<Question, 'id' | 'topic' | 'subtopic' | 'exam' | 'part'>[] = [];
     
@@ -671,7 +683,9 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
         
         let parsed: Omit<Question, 'id' | 'topic' | 'subtopic' | 'exam' | 'part'>[] = [];
         if (format === 'json') {
-          parsed = validateAndParseJSON(content);
+          parsed = await validateAndParseJSONAsync(content, (prog) => {
+            setParsingProgress(prog);
+          });
         } else if (format === 'html') {
           parsed = parseHTMLText(content);
         } else {
@@ -701,6 +715,9 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
         for (const subj of activeExamConfig.subjects) {
           const allotment = activeExamConfig.rules.subjectAllotments[subj.name] || 0;
           for (let i = 0; i < allotment && qIndex < allCombinedQuestions.length; i++) {
+            if (qIndex > 0 && qIndex % 1000 === 0) {
+              await new Promise(r => setTimeout(r, 0));
+            }
             completedQuestions.push({
               ...allCombinedQuestions[qIndex],
               id: `uploaded-${Date.now()}-${qIndex}-${Math.floor(Math.random() * 10000)}`,
@@ -717,38 +734,49 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
         
         // If there are leftover questions, assign them to the last subject or just generally
         while (qIndex < allCombinedQuestions.length) {
-           completedQuestions.push({
-              ...allCombinedQuestions[qIndex],
-              id: `uploaded-${Date.now()}-${qIndex}-${Math.floor(Math.random() * 10000)}`,
-              topic: activeExamConfig.subjects[activeExamConfig.subjects.length - 1]?.name || 'General',
-              subtopic: finalMockTitle,
-              exam: selectedExam,
-              part: 'B',
-              isCustom: true,
-              source: 'Mock Upload'
-            });
-            qIndex++;
+            if (qIndex > 0 && qIndex % 1000 === 0) {
+              await new Promise(r => setTimeout(r, 0));
+            }
+            completedQuestions.push({
+               ...allCombinedQuestions[qIndex],
+               id: `uploaded-${Date.now()}-${qIndex}-${Math.floor(Math.random() * 10000)}`,
+               topic: activeExamConfig.subjects[activeExamConfig.subjects.length - 1]?.name || 'General',
+               subtopic: finalMockTitle,
+               exam: selectedExam,
+               part: 'B',
+               isCustom: true,
+               source: 'Mock Upload'
+             });
+             qIndex++;
         }
         
         setParsedQuestions(completedQuestions);
       } else {
         const finalSubtopic = (useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic) || "";
 
-        const completedQuestions: Question[] = allCombinedQuestions.map((q, idx) => ({
-          ...q,
-          id: `uploaded-${Date.now()}-${idx}-${Math.floor(Math.random() * 10000)}`,
-          topic: selectedSubject,
-          subtopic: finalSubtopic,
-          exam: selectedExam,
-          part: 'B',
-          isCustom: true,
-          source: 'User Upload'
-        }));
+        const completedQuestions: Question[] = [];
+        for (let idx = 0; idx < allCombinedQuestions.length; idx++) {
+          if (idx > 0 && idx % 1000 === 0) {
+            await new Promise(r => setTimeout(r, 0));
+          }
+          completedQuestions.push({
+            ...allCombinedQuestions[idx],
+            id: `uploaded-${Date.now()}-${idx}-${Math.floor(Math.random() * 10000)}`,
+            topic: selectedSubject,
+            subtopic: finalSubtopic,
+            exam: selectedExam,
+            part: 'B',
+            isCustom: true,
+            source: 'User Upload'
+          });
+        }
 
         setParsedQuestions(completedQuestions);
       }
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to process the files. Make sure the structure and JSON parameters are valid.");
+    } finally {
+      setIsParsing(false);
     }
   };
 
@@ -758,30 +786,51 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
     setUploadProgress(0);
     setSyncFailed(false);
     
-    // Commit ALL questions at once - uploadQuestionsInChunks will chunk them into bundles of 200
     const batchToUpload = [...parsedQuestions];
+    const totalQuestions = batchToUpload.length;
 
-    setUploadTotal(batchToUpload.length);
+    setUploadTotal(totalQuestions);
     setUploadCurrent(0);
     setErrorMsg(null);
     setSuccessCount(0);
 
     try {
-      // First save to local storage (which caches locally)
-      const customStr = localStorage.getItem('cs_mcq_custom_questions');
-      const existingCustom: Question[] = customStr ? JSON.parse(customStr) : [];
-      const existingIds = new Set(existingCustom.map(q => q.id));
-      const uniqueNew = batchToUpload.filter(q => !existingIds.has(q.id));
-      const updatedCustom = [...existingCustom, ...uniqueNew];
-      localStorage.setItem('cs_mcq_custom_questions', JSON.stringify(updatedCustom));
+      const chunkSize = 1000;
+      let completedSoFar = 0;
 
-      // Now run the chunk uploader with progress callback
-      await uploadQuestionsInChunks(batchToUpload, (uploadedCount) => {
-        setUploadCurrent(uploadedCount);
-        setUploadProgress(Math.round((uploadedCount / batchToUpload.length) * 100));
-      });
+      for (let i = 0; i < totalQuestions; i += chunkSize) {
+        const chunk = batchToUpload.slice(i, i + chunkSize);
 
-      // After successfully committing to firestore, calculate new count and sync progress
+        // First save to local storage (safely trimmed to last 1000 items to prevent QuotaExceededError)
+        try {
+          const customStr = localStorage.getItem('cs_mcq_custom_questions');
+          const existingCustom: Question[] = customStr ? JSON.parse(customStr) : [];
+          const existingIds = new Set(existingCustom.map(q => q.id));
+          const uniqueNew = chunk.filter(q => !existingIds.has(q.id));
+          const updatedCustom = [...existingCustom, ...uniqueNew];
+          const trimmedCustom = updatedCustom.slice(-1000);
+          localStorage.setItem('cs_mcq_custom_questions', JSON.stringify(trimmedCustom));
+        } catch (storageError) {
+          console.warn('[Storage] LocalStorage quota exceeded in chunk commit. Fully caching in IndexedDB & Firestore instead.', storageError);
+        }
+
+        // Sync this specific chunk of 1000 questions to Firestore
+        const startIdx = i;
+        await uploadQuestionsInChunks(chunk, (uploadedCountInChunk) => {
+          const totalUploadedNow = startIdx + uploadedCountInChunk;
+          setUploadCurrent(totalUploadedNow);
+          setUploadProgress(Math.round((totalUploadedNow / totalQuestions) * 100));
+        });
+
+        completedSoFar += chunk.length;
+        setUploadCurrent(completedSoFar);
+        setUploadProgress(Math.round((completedSoFar / totalQuestions) * 100));
+
+        // Yield control to main thread (allowing DOM paint and GC reclamation)
+        await new Promise(r => setTimeout(r, 60));
+      }
+
+      // After successfully committing all chunks to firestore, calculate new count and sync progress
       const finalSubtopic = activeTab === 'upload_mock' ? (mockTitle.trim() || 'General Mock') : ((useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic) || '');
       const targetSubject = activeTab === 'upload_mock' ? 'Mock Upload' : selectedSubject;
       
@@ -798,13 +847,13 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
         exam: selectedExam,
         subject: targetSubject,
         subtopic: finalSubtopic,
-        count: batchToUpload.length
+        count: totalQuestions
       });
 
       // Now sync this live to Firebase
       await syncTopicProgressToFirebase(selectedExam, targetSubject, finalSubtopic, newCount);
 
-      setSuccessCount(batchToUpload.length);
+      setSuccessCount(totalQuestions);
       setParsedQuestions([]);
 
       setFileName(null);
@@ -813,7 +862,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
       
       onQuestionsSaved();
     } catch (e: any) {
-      setErrorMsg("Failed to persist questions to cloud. Local save complete: " + (e.message || String(e)));
+      setErrorMsg("Failed to persist questions to cloud: " + (e.message || String(e)));
       setSyncFailed(true);
     } finally {
       setIsUploading(false);
@@ -827,13 +876,31 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
     setErrorMsg(null);
 
     const remainingQuestions = parsedQuestions.slice(uploadCurrent);
+    const totalRemaining = remainingQuestions.length;
+    const chunkSize = 1000;
+    const baseOffset = uploadCurrent;
 
     try {
-      await uploadQuestionsInChunks(remainingQuestions, (uploadedCount) => {
-        const newCurrent = uploadCurrent + uploadedCount;
-        setUploadCurrent(newCurrent);
-        setUploadProgress(Math.round((newCurrent / uploadTotal) * 100));
-      });
+      let completedSoFar = 0;
+
+      for (let i = 0; i < totalRemaining; i += chunkSize) {
+        const chunk = remainingQuestions.slice(i, i + chunkSize);
+
+        const startIdx = i;
+        await uploadQuestionsInChunks(chunk, (uploadedCountInChunk) => {
+          const totalUploadedNow = baseOffset + startIdx + uploadedCountInChunk;
+          setUploadCurrent(totalUploadedNow);
+          setUploadProgress(Math.round((totalUploadedNow / uploadTotal) * 100));
+        });
+
+        completedSoFar += chunk.length;
+        const finalCurrent = baseOffset + completedSoFar;
+        setUploadCurrent(finalCurrent);
+        setUploadProgress(Math.round((finalCurrent / uploadTotal) * 100));
+
+        // Yield control to main thread (allowing DOM paint and GC reclamation)
+        await new Promise(r => setTimeout(r, 60));
+      }
 
       const finalSubtopic = activeTab === 'upload_mock' ? (mockTitle.trim() || 'General Mock') : ((useCustomSubtopic ? customSubtopic.trim() : selectedSubtopic) || '');
       const targetSubject = activeTab === 'upload_mock' ? 'Mock Upload' : selectedSubject;
@@ -1415,6 +1482,26 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
             </div>
           </div>
 
+          {/* Parsing progress spinner / bar */}
+          {isParsing && (
+            <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4 space-y-3 shadow-md animate-pulse">
+              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                <Icons.RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+                <span className="text-xs font-black tracking-wide uppercase">Reading and parsing questions...</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                  <span>Progress</span>
+                  <span className="font-bold">{parsingProgress}%</span>
+                </div>
+                <div className="w-full bg-slate-200 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-indigo-500 h-full transition-all duration-300" style={{ width: `${parsingProgress}%` }}></div>
+                </div>
+                <p className="text-[9.5px] text-slate-500 font-mono">Please don't close this tab while we split and extract thousands of questions smoothly.</p>
+              </div>
+            </div>
+          )}
+
           {/* Verification modal / actions */}
           {parsedQuestions.length > 0 && (
             <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 space-y-3.5 shadow-md">
@@ -1427,6 +1514,11 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
                   <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                     Target database: <span className="font-bold text-amber-500">ai-studio-a27adeb9-5185-4392-84a0-bab23bf35886</span>
                   </div>
+                  {parsedQuestions.length > 20 && (
+                    <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold font-mono">
+                      * Showing first 20 of {parsedQuestions.length} parsed questions for preview safety.
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   <button
@@ -1445,7 +1537,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
               </div>
 
               <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1">
-                {parsedQuestions.map((q, idx) => (
+                {parsedQuestions.slice(0, 20).map((q, idx) => (
                   <div key={idx} className="bg-white dark:bg-black/25 rounded-xl p-3 text-xs space-y-2 border border-slate-200 dark:border-white/5">
                     <p className="font-bold text-slate-900 dark:text-slate-200">Q{idx + 1} ({q.topic}): {q.text}</p>
                     <div className="grid grid-cols-2 gap-1.5 pl-2">
@@ -1535,6 +1627,26 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
             </div>
           </div>
 
+          {/* Parsing progress spinner / bar */}
+          {isParsing && (
+            <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4 space-y-3 shadow-md animate-pulse">
+              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                <Icons.RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+                <span className="text-xs font-black tracking-wide uppercase">Reading and parsing questions...</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                  <span>Progress</span>
+                  <span className="font-bold">{parsingProgress}%</span>
+                </div>
+                <div className="w-full bg-slate-200 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-indigo-500 h-full transition-all duration-300" style={{ width: `${parsingProgress}%` }}></div>
+                </div>
+                <p className="text-[9.5px] text-slate-500 font-mono">Please don't close this tab while we split and extract thousands of questions smoothly.</p>
+              </div>
+            </div>
+          )}
+
           {/* Verification modal / actions */}
           {parsedQuestions.length > 0 && (
             <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 space-y-3.5 shadow-md">
@@ -1547,6 +1659,11 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
                   <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                     Target database: <span className="font-bold text-amber-500">ai-studio-a27adeb9-5185-4392-84a0-bab23bf35886</span>
                   </div>
+                  {parsedQuestions.length > 20 && (
+                    <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold font-mono">
+                      * Showing first 20 of {parsedQuestions.length} parsed questions for preview safety.
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   <button
@@ -1565,7 +1682,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
               </div>
 
               <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1">
-                {parsedQuestions.map((q, idx) => (
+                {parsedQuestions.slice(0, 20).map((q, idx) => (
                   <div key={idx} className="bg-white dark:bg-black/25 rounded-xl p-3 text-xs space-y-2 border border-slate-200 dark:border-white/5">
                     <p className="font-bold text-slate-900 dark:text-slate-200">Q{idx + 1} ({q.topic}): {q.text}</p>
                     <div className="grid grid-cols-2 gap-1.5 pl-2">
