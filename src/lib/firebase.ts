@@ -20,19 +20,169 @@ import {
   persistentMultipleTabManager,
   getDocFromServer,
   doc, 
-  setDoc, 
-  getDoc, 
   collection, 
-  getDocs, 
   query, 
   orderBy, 
   limit, 
-  updateDoc, 
   arrayUnion,
   arrayRemove,
-  writeBatch,
-  deleteDoc
+  where,
+  startAfter,
+  setDoc as fsetDoc,
+  getDoc as fgetDoc,
+  getDocs as fgetDocs,
+  updateDoc as fupdateDoc,
+  deleteDoc as fdeleteDoc,
+  writeBatch as fwriteBatch
 } from 'firebase/firestore';
+
+// DB Monitor to track Firestore reads and writes in the current session
+class DBMonitor {
+  public reads = Number(localStorage.getItem('cs_mcq_session_reads') || '0');
+  public writes = Number(localStorage.getItem('cs_mcq_session_writes') || '0');
+  private listeners = new Set<() => void>();
+
+  getStats() {
+    return { reads: this.reads, writes: this.writes };
+  }
+
+  reset() {
+    this.reads = 0;
+    this.writes = 0;
+    localStorage.setItem('cs_mcq_session_reads', '0');
+    localStorage.setItem('cs_mcq_session_writes', '0');
+    this.notify();
+  }
+
+  incrementReads(count: number = 1) {
+    this.reads += count;
+    localStorage.setItem('cs_mcq_session_reads', String(this.reads));
+    this.notify();
+  }
+
+  incrementWrites(count: number = 1) {
+    this.writes += count;
+    localStorage.setItem('cs_mcq_session_writes', String(this.writes));
+    this.notify();
+  }
+
+  subscribe(cb: () => void) {
+    this.listeners.add(cb);
+    return () => {
+      this.listeners.delete(cb);
+    };
+  }
+
+  private notify() {
+    this.listeners.forEach(cb => {
+      try {
+        cb();
+      } catch (e) {
+        console.error('Error in DBMonitor listener', e);
+      }
+    });
+  }
+
+  isBypassed() {
+    return localStorage.getItem('cs_mcq_bypass_cloud_sync') === 'true';
+  }
+
+  setBypass(val: boolean) {
+    localStorage.setItem('cs_mcq_bypass_cloud_sync', val ? 'true' : 'false');
+    this.notify();
+  }
+}
+
+export const dbMonitor = new DBMonitor();
+
+// Wrap core operations for live tracking and quota simulation
+export async function getDoc(ref: any) {
+  if (dbMonitor.isBypassed()) {
+    throw new Error('Firestore Quota Exhausted: Bypassed by Administrator (Simulated offline mode).');
+  }
+  dbMonitor.incrementReads(1);
+  return await fgetDoc(ref);
+}
+
+export async function getDocs(q: any) {
+  if (dbMonitor.isBypassed()) {
+    throw new Error('Firestore Quota Exhausted: Bypassed by Administrator (Simulated offline mode).');
+  }
+  const snap = await fgetDocs(q);
+  dbMonitor.incrementReads(snap.size || 1);
+  return snap;
+}
+
+export async function setDoc(ref: any, data: any, options?: any) {
+  if (dbMonitor.isBypassed()) {
+    throw new Error('Firestore Quota Exhausted: Bypassed by Administrator (Simulated offline mode).');
+  }
+  dbMonitor.incrementWrites(1);
+  return await fsetDoc(ref, data, options);
+}
+
+export async function updateDoc(ref: any, data: any) {
+  if (dbMonitor.isBypassed()) {
+    throw new Error('Firestore Quota Exhausted: Bypassed by Administrator (Simulated offline mode).');
+  }
+  dbMonitor.incrementWrites(1);
+  return await fupdateDoc(ref, data);
+}
+
+export async function deleteDoc(ref: any) {
+  if (dbMonitor.isBypassed()) {
+    throw new Error('Firestore Quota Exhausted: Bypassed by Administrator (Simulated offline mode).');
+  }
+  dbMonitor.incrementWrites(1);
+  return await fdeleteDoc(ref);
+}
+
+export function writeBatch(firestoreDb: any) {
+  const batch = fwriteBatch(firestoreDb);
+  let count = 0;
+  return {
+    set(ref: any, data: any, options?: any) {
+      count++;
+      batch.set(ref, data, options);
+      return this;
+    },
+    update(ref: any, data: any) {
+      count++;
+      batch.update(ref, data);
+      return this;
+    },
+    delete(ref: any) {
+      count++;
+      batch.delete(ref);
+      return this;
+    },
+    async commit() {
+      if (dbMonitor.isBypassed()) {
+        throw new Error('Firestore Quota Exhausted: Bypassed by Administrator (Simulated offline mode).');
+      }
+      const res = await batch.commit();
+      dbMonitor.incrementWrites(count);
+      return res;
+    }
+  };
+}
+
+export { 
+  initializeFirestore,
+  getFirestore, 
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  getDocFromServer,
+  doc, 
+  collection, 
+  query, 
+  orderBy, 
+  limit, 
+  arrayUnion,
+  arrayRemove,
+  where,
+  startAfter
+};
 import { UserProfile, Badge, QuizAttempt, BookmarkedQuestion, LeaderboardEntry, WrongQuestion } from '../types';
 
 import firebaseConfig from '../../firebase-applet-config.json';
