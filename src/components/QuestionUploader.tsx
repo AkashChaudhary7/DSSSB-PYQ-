@@ -10,6 +10,7 @@ import { saveCustomQuestions, getExamsConfig, saveExamsConfig, getAllQuestions, 
 import { uploadQuestionsInChunks } from '../lib/questionSync';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 interface QuestionUploaderProps {
   onBack: () => void;
@@ -1254,7 +1255,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
             />
           </div>
           <div className="flex justify-between items-center text-[10px] font-mono text-slate-500 dark:text-slate-400">
-            <span>DB ID: <span className="text-indigo-400 font-bold">ai-studio-a27adeb9-5185-4392-84a0-bab23bf35886</span></span>
+            <span>DB ID: <span className="text-indigo-400 font-bold">{firebaseConfig.firestoreDatabaseId === '(default)' ? firebaseConfig.projectId : firebaseConfig.firestoreDatabaseId}</span></span>
             <span>Batch Progress</span>
           </div>
         </div>
@@ -1512,7 +1513,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
                     <span className="text-xs font-black tracking-wide uppercase">Loaded verification ({parsedQuestions.length} Qs pending)</span>
                   </div>
                   <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                    Target database: <span className="font-bold text-amber-500">ai-studio-a27adeb9-5185-4392-84a0-bab23bf35886</span>
+                    Target database: <span className="font-bold text-amber-500">{firebaseConfig.firestoreDatabaseId === '(default)' ? firebaseConfig.projectId : firebaseConfig.firestoreDatabaseId}</span>
                   </div>
                   {parsedQuestions.length > 20 && (
                     <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold font-mono">
@@ -1657,7 +1658,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
                     <span className="text-xs font-black tracking-wide uppercase">Loaded verification ({parsedQuestions.length} Qs pending)</span>
                   </div>
                   <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                    Target database: <span className="font-bold text-amber-500">ai-studio-a27adeb9-5185-4392-84a0-bab23bf35886</span>
+                    Target database: <span className="font-bold text-amber-500">{firebaseConfig.firestoreDatabaseId === '(default)' ? firebaseConfig.projectId : firebaseConfig.firestoreDatabaseId}</span>
                   </div>
                   {parsedQuestions.length > 20 && (
                     <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold font-mono">
