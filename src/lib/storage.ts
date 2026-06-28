@@ -131,7 +131,20 @@ export function saveCustomQuestions(newQuestions: Question[]): void {
     const uniqueNew = newQuestions.filter(q => !existingIds.has(q.id));
     
     const updatedCustom = [...existingCustom, ...uniqueNew];
-    localStorage.setItem(CUSTOM_QUESTIONS_KEY, JSON.stringify(updatedCustom));
+    
+    // Safe-trim localStorage cache to last 1000 elements to prevent QuotaExceededError
+    // IndexedDB is the full and robust primary local persistent store!
+    const trimmedCustom = updatedCustom.slice(-1000);
+    try {
+      localStorage.setItem(CUSTOM_QUESTIONS_KEY, JSON.stringify(trimmedCustom));
+    } catch (err) {
+      console.warn('[Storage] LocalStorage quota exceeded, fallback to last 200 questions:', err);
+      try {
+        localStorage.setItem(CUSTOM_QUESTIONS_KEY, JSON.stringify(updatedCustom.slice(-200)));
+      } catch (innerErr) {
+        localStorage.removeItem(CUSTOM_QUESTIONS_KEY);
+      }
+    }
 
     // Upload to Firestore and save in IndexedDB in the background
     uploadQuestionsInChunks(newQuestions).catch((err) => {
