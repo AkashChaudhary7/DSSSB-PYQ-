@@ -107,7 +107,7 @@ export async function uploadQuestionsInChunks(
       let currentBundleQs: Question[] = [];
       let nextIndex = lastIndex;
 
-      if (lastBundleDoc && lastBundleDoc.questions && lastBundleDoc.questions.length < 200) {
+      if (lastBundleDoc && lastBundleDoc.questions && lastBundleDoc.questions.length < 1000) {
         currentBundleQs = [...lastBundleDoc.questions];
       } else {
         // Create new bundle
@@ -121,7 +121,7 @@ export async function uploadQuestionsInChunks(
       // If we are appending to the last bundle
       if (currentBundleQs.length > 0 && lastBundleDoc && qToInsert.length > 0) {
         const batch = writeBatch(db);
-        const spaceLeft = 200 - currentBundleQs.length;
+        const spaceLeft = 1000 - currentBundleQs.length;
         const fillQs = qToInsert.slice(0, spaceLeft);
         qToInsert = qToInsert.slice(spaceLeft);
 
@@ -147,27 +147,54 @@ export async function uploadQuestionsInChunks(
         }
       }
 
-      // For the remaining questions, chunk them into new bundles of 200 and commit sequentially
-      const bundleSize = 200;
+      // For the remaining questions, chunk them into new bundles of 1000 and commit using a high-performance sliding window concurrency pool
+      const bundleSize = 1000;
+      const chunks: { ref: any; data: any; size: number }[] = [];
       for (let i = 0; i < qToInsert.length; i += bundleSize) {
-        const batch = writeBatch(db);
         const chunk = qToInsert.slice(i, i + bundleSize);
         const bundleId = `bundle_${examId}_${nextIndex}`;
         const docRef = doc(db, BUNDLES_COLLECTION, bundleId);
-
-        batch.set(docRef, {
-          id: bundleId,
-          examId,
-          updatedAt: new Date().toISOString(),
-          questions: chunk
+        chunks.push({
+          ref: docRef,
+          size: chunk.length,
+          data: {
+            id: bundleId,
+            examId,
+            updatedAt: new Date().toISOString(),
+            questions: chunk
+          }
         });
-
-        await batch.commit();
         nextIndex++;
-        processedCount += chunk.length;
-        if (onProgress) {
-          onProgress(processedCount);
+      }
+
+      // Concurrency limit of 6 to speed up the process by 6x without hitting quotas or rate limits
+      const CONCURRENCY_LIMIT = 6;
+      let activePromises: Promise<void>[] = [];
+
+      for (const item of chunks) {
+        if (activePromises.length >= CONCURRENCY_LIMIT) {
+          await Promise.race(activePromises);
         }
+
+        const p = (async () => {
+          const batch = writeBatch(db);
+          batch.set(item.ref, item.data);
+          await batch.commit();
+          processedCount += item.size;
+          if (onProgress) {
+            onProgress(processedCount);
+          }
+        })();
+
+        activePromises.push(p);
+        p.then(() => {
+          activePromises = activePromises.filter(activeP => activeP !== p);
+        });
+      }
+
+      // Await any remaining in-flight batches
+      if (activePromises.length > 0) {
+        await Promise.all(activePromises);
       }
     }
   } catch (error) {
