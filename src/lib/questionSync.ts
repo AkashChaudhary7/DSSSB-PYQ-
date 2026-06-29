@@ -9,10 +9,42 @@ import {
   limit, 
   startAfter,
   writeBatch, 
-  doc
+  doc,
+  getDoc,
+  setDoc
 } from './firebase';
-import { Question } from '../types';
+import { Question, ExamConfig } from '../types';
 import { getQuestionsCached, saveQuestionsCached } from './indexedDB';
+import { saveExamsConfig } from './storage';
+
+export async function syncExamsConfigFromFirestore(): Promise<void> {
+  try {
+    const docRef = doc(db, 'metadata', 'exams_config');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data() as any;
+      if (data && data.configs && Array.isArray(data.configs)) {
+        console.log('[Sync] Fetched custom exams config from Firestore:', data.configs);
+        saveExamsConfig(data.configs);
+      }
+    }
+  } catch (error) {
+    console.warn('[Sync] Failed to sync exams config from Firestore:', error);
+  }
+}
+
+export async function saveExamsConfigToFirestore(configs: ExamConfig[]): Promise<void> {
+  try {
+    const docRef = doc(db, 'metadata', 'exams_config');
+    await setDoc(docRef, {
+      configs,
+      updatedAt: new Date().toISOString()
+    });
+    console.log('[Sync] Saved custom exams config to Firestore successfully.');
+  } catch (error) {
+    console.error('[Sync] Failed to save exams config to Firestore:', error);
+  }
+}
 
 enum OperationType {
   CREATE = 'create',
@@ -284,6 +316,9 @@ export async function uploadQuestionsInChunks(
  * Saves Firestore daily read limits by only requesting newly added/updated records.
  */
 export async function syncQuestionsFromFirestore(selectedExams?: string[]): Promise<Question[]> {
+  // Sync the exam configurations first so any newly added subjects are pulled instantly
+  await syncExamsConfigFromFirestore();
+
   const lastSync = localStorage.getItem(LAST_SYNC_KEY) || '1970-01-01T00:00:00.000Z';
   
   try {
@@ -300,21 +335,36 @@ export async function syncQuestionsFromFirestore(selectedExams?: string[]): Prom
     while (hasMore && fetchAttempts < 100) {
       fetchAttempts++;
       let q;
-      if (lastVisible) {
-        q = query(
-          collection(db, BUNDLES_COLLECTION),
-          where('updatedAt', '>', lastSync),
-          orderBy('updatedAt'),
-          startAfter(lastVisible),
-          limit(BATCH_LIMIT)
-        );
+      if (lastSync === '1970-01-01T00:00:00.000Z') {
+        if (lastVisible) {
+          q = query(
+            collection(db, BUNDLES_COLLECTION),
+            startAfter(lastVisible),
+            limit(BATCH_LIMIT)
+          );
+        } else {
+          q = query(
+            collection(db, BUNDLES_COLLECTION),
+            limit(BATCH_LIMIT)
+          );
+        }
       } else {
-        q = query(
-          collection(db, BUNDLES_COLLECTION),
-          where('updatedAt', '>', lastSync),
-          orderBy('updatedAt'),
-          limit(BATCH_LIMIT)
-        );
+        if (lastVisible) {
+          q = query(
+            collection(db, BUNDLES_COLLECTION),
+            where('updatedAt', '>', lastSync),
+            orderBy('updatedAt'),
+            startAfter(lastVisible),
+            limit(BATCH_LIMIT)
+          );
+        } else {
+          q = query(
+            collection(db, BUNDLES_COLLECTION),
+            where('updatedAt', '>', lastSync),
+            orderBy('updatedAt'),
+            limit(BATCH_LIMIT)
+          );
+        }
       }
 
       console.log(`[Sync] Querying bundles with lastSync=${lastSync}, attempt=${fetchAttempts}`);
@@ -332,7 +382,7 @@ export async function syncQuestionsFromFirestore(selectedExams?: string[]): Prom
         const data = docSnap.data() as any;
         console.log(`[Sync Debug] Doc ID: ${docSnap.id}, examId: ${data.examId}, questions length: ${data.questions?.length}`);
         
-        if (data.updatedAt > currentLastSync) {
+        if (data.updatedAt && data.updatedAt > currentLastSync) {
           currentLastSync = data.updatedAt;
         }
 
