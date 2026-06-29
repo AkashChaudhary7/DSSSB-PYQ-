@@ -7,7 +7,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import * as Icons from 'lucide-react';
 import { Question, ExamConfig, ExamSubject, ExamRule } from '../types';
 import { saveCustomQuestions, getExamsConfig, saveExamsConfig, getAllQuestions, AdminActivity, getAdminActivities, logAdminActivity, getNormalizedSubject } from '../lib/storage';
-import { uploadQuestionsInChunks } from '../lib/questionSync';
+import { uploadQuestionsInChunks, saveExamsConfigToFirestore } from '../lib/questionSync';
 import { getQuestionsCached, saveQuestionsCached, clearQuestionsCached } from '../lib/indexedDB';
 import { doc, setDoc, getDoc, db, dbMonitor } from '../lib/firebase';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -39,7 +39,12 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
   // Schema configs
   const [examsConfig, setExamsConfig] = useState<ExamConfig[]>([]);
   useEffect(() => {
-    setExamsConfig(getExamsConfig());
+    const load = () => {
+      setExamsConfig(getExamsConfig());
+    };
+    load();
+    window.addEventListener('exams-config-updated', load);
+    return () => window.removeEventListener('exams-config-updated', load);
   }, []);
 
   // DB Monitor and Quota Recovery states
@@ -1164,6 +1169,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
 
     saveExamsConfig(updated);
     setExamsConfig(updated);
+    saveExamsConfigToFirestore(updated);
     setSuccessCount(1);
     setErrorMsg(null);
   };
@@ -1198,6 +1204,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
 
     saveExamsConfig(updated);
     setExamsConfig(updated);
+    saveExamsConfigToFirestore(updated);
     setNewSubjectName('');
     setSuccessCount(1);
   };
@@ -1251,6 +1258,7 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
 
     saveExamsConfig(updated);
     setExamsConfig(updated);
+    saveExamsConfigToFirestore(updated);
     setNewTopicName('');
     setNewSubtopicCSV('');
     setSuccessCount(1);
