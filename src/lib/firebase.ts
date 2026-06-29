@@ -113,12 +113,38 @@ export async function getDocs(q: any) {
   return snap;
 }
 
+function sanitizeFirestoreData(data: any): any {
+  if (data === undefined) {
+    return null;
+  }
+  if (data === null) {
+    return null;
+  }
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeFirestoreData(item));
+  }
+  if (typeof data === 'object') {
+    const proto = Object.getPrototypeOf(data);
+    if (proto === null || proto === Object.prototype) {
+      const cleaned: any = {};
+      for (const [key, value] of Object.entries(data)) {
+        if (value !== undefined) {
+          cleaned[key] = sanitizeFirestoreData(value);
+        }
+      }
+      return cleaned;
+    }
+    return data;
+  }
+  return data;
+}
+
 export async function setDoc(ref: any, data: any, options?: any) {
   if (dbMonitor.isBypassed()) {
     throw new Error('Firestore Quota Exhausted: Bypassed by Administrator (Simulated offline mode).');
   }
   dbMonitor.incrementWrites(1);
-  return await fsetDoc(ref, data, options);
+  return await fsetDoc(ref, sanitizeFirestoreData(data), options);
 }
 
 export async function updateDoc(ref: any, data: any) {
@@ -126,7 +152,7 @@ export async function updateDoc(ref: any, data: any) {
     throw new Error('Firestore Quota Exhausted: Bypassed by Administrator (Simulated offline mode).');
   }
   dbMonitor.incrementWrites(1);
-  return await fupdateDoc(ref, data);
+  return await fupdateDoc(ref, sanitizeFirestoreData(data));
 }
 
 export async function deleteDoc(ref: any) {
@@ -143,12 +169,12 @@ export function writeBatch(firestoreDb: any) {
   return {
     set(ref: any, data: any, options?: any) {
       count++;
-      batch.set(ref, data, options);
+      batch.set(ref, sanitizeFirestoreData(data), options);
       return this;
     },
     update(ref: any, data: any) {
       count++;
-      batch.update(ref, data);
+      batch.update(ref, sanitizeFirestoreData(data));
       return this;
     },
     delete(ref: any) {
