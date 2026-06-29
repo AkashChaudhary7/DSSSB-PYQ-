@@ -54,9 +54,33 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 const QUESTIONS_COLLECTION = 'questions';
 const BUNDLES_COLLECTION = 'question_bundles';
 const LAST_SYNC_KEY = 'cs_mcq_questions_last_sync_timestamp';
+const FIRESTORE_MAX_BYTES = 1048576;
+const MAX_PAYLOAD_BYTES = Math.floor(FIRESTORE_MAX_BYTES * 0.95); // 996,147 bytes
 
 /**
- * Uploads a list of questions to Firestore in bundles of up to 1000.
+ * Estimating UTF-8 bytes for a serialized object, adding 500 bytes safety buffer for Firestore envelope.
+ */
+function estimateBytes(obj: any): number {
+  const str = JSON.stringify(obj);
+  let bytes = 0;
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    if (code < 0x80) {
+      bytes += 1;
+    } else if (code < 0x800) {
+      bytes += 2;
+    } else if (code < 0xd800 || code >= 0xe000) {
+      bytes += 3;
+    } else {
+      i++;
+      bytes += 4;
+    }
+  }
+  return bytes + 500;
+}
+
+/**
+ * Uploads a list of questions to Firestore in bundles.
  * Saves Firestore daily read/write limits by aggregating questions into a single document.
  * Also caches them locally in IndexedDB immediately.
  */
@@ -107,11 +131,17 @@ export async function uploadQuestionsInChunks(
 
       let currentBundleQs: Question[] = [];
       let nextIndex = lastIndex;
+      let lastBundleHasSpace = false;
 
-      if (lastBundleDoc && lastBundleDoc.questions && lastBundleDoc.questions.length < 1000) {
-        currentBundleQs = [...lastBundleDoc.questions];
-      } else {
-        // Create new bundle
+      if (lastBundleDoc && lastBundleDoc.questions) {
+        const lastBundleBytes = estimateBytes(lastBundleDoc);
+        if (lastBundleBytes < MAX_PAYLOAD_BYTES) {
+          currentBundleQs = [...lastBundleDoc.questions];
+          lastBundleHasSpace = true;
+        }
+      }
+
+      if (!lastBundleHasSpace) {
         nextIndex = lastIndex + 1;
         currentBundleQs = [];
       }
@@ -120,49 +150,94 @@ export async function uploadQuestionsInChunks(
       let qToInsert = [...groupQs];
 
       // If we are appending to the last bundle
-      if (currentBundleQs.length > 0 && lastBundleDoc && qToInsert.length > 0) {
+      if (lastBundleHasSpace && lastBundleDoc && qToInsert.length > 0) {
         const batch = writeBatch(db);
-        const spaceLeft = 1000 - currentBundleQs.length;
-        const fillQs = qToInsert.slice(0, spaceLeft);
-        qToInsert = qToInsert.slice(spaceLeft);
+        const fillQs: Question[] = [];
+        const simulatedBundleQs = [...currentBundleQs];
+        const seenIds = new Set(simulatedBundleQs.map(q => q.id));
 
-        // Deduplicate and append
-        const seenIds = new Set(currentBundleQs.map(q => q.id));
-        for (const f of fillQs) {
-          if (!seenIds.has(f.id)) {
-            currentBundleQs.push(f);
+        let appendCount = 0;
+        for (const q of qToInsert) {
+          if (seenIds.has(q.id)) {
+            appendCount++;
+            continue;
+          }
+
+          simulatedBundleQs.push(q);
+          const simulatedDoc = {
+            id: lastBundleDoc.id,
+            examId,
+            updatedAt: new Date().toISOString(),
+            questions: simulatedBundleQs
+          };
+
+          if (estimateBytes(simulatedDoc) <= MAX_PAYLOAD_BYTES) {
+            fillQs.push(q);
+            appendCount++;
+          } else {
+            // Reached size capacity for last bundle
+            break;
           }
         }
 
-        batch.set(lastBundleDoc.ref, {
-          id: lastBundleDoc.id,
-          examId,
-          updatedAt: new Date().toISOString(),
-          questions: currentBundleQs
-        }, { merge: true });
+        if (fillQs.length > 0) {
+          for (const f of fillQs) {
+            currentBundleQs.push(f);
+          }
 
-        await batch.commit();
-        processedCount += fillQs.length;
-        if (onProgress) {
-          onProgress(processedCount);
+          batch.set(lastBundleDoc.ref, {
+            id: lastBundleDoc.id,
+            examId,
+            updatedAt: new Date().toISOString(),
+            questions: currentBundleQs
+          }, { merge: true });
+
+          await batch.commit();
+          processedCount += fillQs.length;
+          if (onProgress) {
+            onProgress(processedCount);
+          }
         }
+
+        qToInsert = qToInsert.slice(appendCount);
       }
 
-      // For the remaining questions, chunk them into new bundles of 1000 and commit using a high-performance sliding window concurrency pool
-      const bundleSize = 1000;
+      // For the remaining questions, chunk them dynamically into new bundles and commit using a high-performance sliding window concurrency pool
       const chunks: { ref: any; data: any; size: number }[] = [];
-      for (let i = 0; i < qToInsert.length; i += bundleSize) {
-        const chunk = qToInsert.slice(i, i + bundleSize);
+      let chunkIndex = 0;
+
+      while (chunkIndex < qToInsert.length) {
+        const currentChunk: Question[] = [];
         const bundleId = `bundle_${examId}_${nextIndex}`;
         const docRef = doc(db, BUNDLES_COLLECTION, bundleId);
+
+        while (chunkIndex < qToInsert.length) {
+          const nextQ = qToInsert[chunkIndex];
+          const simulatedChunk = [...currentChunk, nextQ];
+          const simulatedDoc = {
+            id: bundleId,
+            examId,
+            updatedAt: new Date().toISOString(),
+            questions: simulatedChunk
+          };
+
+          if (currentChunk.length === 0 || estimateBytes(simulatedDoc) <= MAX_PAYLOAD_BYTES) {
+            currentChunk.push(nextQ);
+            chunkIndex++;
+          } else {
+            // Reached capacity for this chunk, proceed to next bundle
+            break;
+          }
+        }
+
         chunks.push({
           ref: docRef,
-          size: chunk.length,
+          size: currentChunk.length,
           data: {
             id: bundleId,
             examId,
             updatedAt: new Date().toISOString(),
-            questions: chunk
+            questions: currentChunk
           }
         });
         nextIndex++;
