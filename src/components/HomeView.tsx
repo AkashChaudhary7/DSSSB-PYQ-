@@ -52,8 +52,13 @@ export default function HomeView({
 
   // Load configuration and active choices
   useEffect(() => {
-    setExamsConfig(getExamsConfig());
-    setSelectedExams(getSelectedExams());
+    const load = () => {
+      setExamsConfig(getExamsConfig());
+      setSelectedExams(getSelectedExams());
+    };
+    load();
+    window.addEventListener('exams-config-updated', load);
+    return () => window.removeEventListener('exams-config-updated', load);
   }, [currentExam]);
 
   const currentExamConfig = useMemo(() => {
