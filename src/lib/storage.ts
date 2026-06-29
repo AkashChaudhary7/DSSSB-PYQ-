@@ -64,6 +64,7 @@ export function getExamsConfig(): ExamConfig[] {
 export function saveExamsConfig(configs: ExamConfig[]): void {
   try {
     localStorage.setItem(EXAMS_CONFIG_KEY, JSON.stringify(configs));
+    window.dispatchEvent(new CustomEvent('exams-config-updated'));
   } catch (e) {
     console.error('Failed to save exams config', e);
   }
