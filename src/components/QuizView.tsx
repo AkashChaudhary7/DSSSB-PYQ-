@@ -63,6 +63,7 @@ export default function QuizView({
   // Results screen states
   const [showResults, setShowResults] = useState<boolean>(false);
   const [quizAttemptData, setQuizAttemptData] = useState<QuizAttempt | null>(null);
+  const [isReviewingQuestions, setIsReviewingQuestions] = useState<boolean>(false);
   
   // Master timing countdown
   const [timeLeft, setTimeLeft] = useState<number>(120 * 60); // Default 120 minutes for total mock exam
@@ -74,6 +75,33 @@ export default function QuizView({
     let list: Question[] = [];
 
     const activeExamConfig = getExamsConfig().find(e => e.id === examType) || getExamsConfig()[0];
+
+    // Read full attempt history to calculate unique and wrong-first questions
+    const attempts = getQuizAttempts();
+    const examAttempts = attempts.filter(a => a.examId === examType);
+    
+    const qHistory: Record<string, { attempted: boolean; lastIsCorrect: boolean; correctCount: number }> = {};
+    const sortedAttempts = [...examAttempts].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    
+    sortedAttempts.forEach(attempt => {
+      attempt.questions.forEach(q => {
+        const prev = qHistory[q.questionId] || { attempted: false, lastIsCorrect: false, correctCount: 0 };
+        qHistory[q.questionId] = {
+          attempted: true,
+          lastIsCorrect: q.isCorrect,
+          correctCount: prev.correctCount + (q.isCorrect ? 1 : 0)
+        };
+      });
+    });
+
+    const shuffleArray = <T,>(arr: T[]): T[] => {
+      const shuffled = [...arr];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    };
 
     if (overrideQuestions && overrideQuestions.length > 0) {
       list = [...overrideQuestions];
@@ -88,28 +116,30 @@ export default function QuizView({
             isQuestionForExam(q, examType, activeExamConfig)
           );
           
-          // Use the actual pattern allotment! If there are enough questions in the pool, use allotment.
-          const targetCount = Math.min(allotment, subQs.length);
-          
-          // Fast random sampling
-          const shuffled = [...subQs];
-          for (let i = shuffled.length - 1; i > 0 && (shuffled.length - i) <= targetCount; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          // Categorize subject questions into priority groups
+          const wrongGroup = subQs.filter(q => qHistory[q.id]?.lastIsCorrect === false);
+          const uniqueGroup = subQs.filter(q => !qHistory[q.id] || (qHistory[q.id].correctCount === 0 && qHistory[q.id].lastIsCorrect !== false));
+          const exhaustedGroup = subQs.filter(q => qHistory[q.id]?.correctCount > 0 && qHistory[q.id]?.lastIsCorrect !== false);
+
+          const shuffledWrong = shuffleArray(wrongGroup);
+          const shuffledUnique = shuffleArray(uniqueGroup);
+          const shuffledExhausted = shuffleArray(exhaustedGroup);
+
+          let orderedSubCandidates = [...shuffledWrong, ...shuffledUnique];
+          if (orderedSubCandidates.length < allotment) {
+            orderedSubCandidates = [...orderedSubCandidates, ...shuffledExhausted];
           }
-          list.push(...shuffled.slice(Math.max(0, shuffled.length - targetCount)));
+
+          const targetCount = Math.min(allotment, orderedSubCandidates.length);
+          list.push(...orderedSubCandidates.slice(0, targetCount));
         });
       }
 
       // If pool was sparse, add random fallback questions of the current exam to ensure a good study flow
       if (list.length < 5) {
         const fallbackQs = questionPool.filter(q => isQuestionForExam(q, examType, activeExamConfig));
-        const shuffledFallback = [...fallbackQs];
-        for (let i = shuffledFallback.length - 1; i > 0 && (shuffledFallback.length - i) <= 15; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [shuffledFallback[i], shuffledFallback[j]] = [shuffledFallback[j], shuffledFallback[i]];
-        }
-        list = shuffledFallback.slice(Math.max(0, shuffledFallback.length - 15));
+        const shuffledFallback = shuffleArray(fallbackQs);
+        list = shuffledFallback.slice(0, Math.min(15, shuffledFallback.length));
       }
     } else if (isMockExam && subtopic !== 'All Subject Blueprints') {
       // PYQ / Uploaded Full Mock Mode - fetch directly without shuffling
@@ -145,14 +175,30 @@ export default function QuizView({
         filtered = filtered.filter(q => q.difficulty === difficulty);
       }
       
-      const shuffled = [...filtered];
-      const itemsToPick = customCount && customCount > 0 ? Math.min(customCount, shuffled.length) : shuffled.length;
+      // Categorize practice questions into priority groups
+      const wrongGroup = filtered.filter(q => qHistory[q.id]?.lastIsCorrect === false);
+      const uniqueGroup = filtered.filter(q => !qHistory[q.id] || (qHistory[q.id].correctCount === 0 && qHistory[q.id].lastIsCorrect !== false));
+      const exhaustedGroup = filtered.filter(q => qHistory[q.id]?.correctCount > 0 && qHistory[q.id]?.lastIsCorrect !== false);
+
+      const shuffledWrong = shuffleArray(wrongGroup);
+      const shuffledUnique = shuffleArray(uniqueGroup);
+      const shuffledExhausted = shuffleArray(exhaustedGroup);
+
+      // Prioritize Wrong questions, then unattempted Unique questions, then exhausted correct questions as fallback
+      let orderedCandidates = [...shuffledWrong, ...shuffledUnique];
       
-      for (let i = shuffled.length - 1; i > 0 && (shuffled.length - i) <= itemsToPick; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      // If we don't have enough unique or wrong questions, append exhausted correct ones to fill the session
+      if (orderedCandidates.length === 0) {
+        orderedCandidates = shuffledExhausted;
+      } else {
+        const targetCount = customCount && customCount > 0 ? customCount : filtered.length;
+        if (orderedCandidates.length < targetCount) {
+          orderedCandidates = [...orderedCandidates, ...shuffledExhausted];
+        }
       }
-      list = shuffled.slice(Math.max(0, shuffled.length - itemsToPick));
+
+      const itemsToPick = customCount && customCount > 0 ? Math.min(customCount, orderedCandidates.length) : orderedCandidates.length;
+      list = orderedCandidates.slice(0, itemsToPick);
     }
 
     // Sort final list of questions subject-wise to match official section-wise TCS pattern
@@ -421,6 +467,131 @@ export default function QuizView({
   const isBookmarked = bookmarks.includes(activeQ.id);
 
   if (showResults && quizAttemptData) {
+    if (isReviewingQuestions) {
+      return (
+        <div className="flex flex-col h-full bg-white dark:bg-[#111315] text-slate-800 dark:text-slate-100 rounded-[24px] overflow-hidden border border-slate-200 dark:border-white/10 relative animate-fade-in p-5 md:p-6" id="quiz-review-questions-screen">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-4 shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                <Icons.BookOpen className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white">Practice Drill Review</h3>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">Analyze correct solutions and explanations</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsReviewingQuestions(false)}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 dark:text-slate-300 cursor-pointer"
+            >
+              <Icons.X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Scrollable list of questions */}
+          <div className="flex-1 overflow-y-auto my-4 pr-1 space-y-5 scrollbar-thin text-left">
+            {quizAttemptData.questions.map((qAttemptItem, index) => {
+              const originalQ = questions.find(q => q.id === qAttemptItem.questionId);
+              const isCorrect = qAttemptItem.isCorrect;
+              const optionsList = originalQ ? originalQ.options : ["Option A", "Option B", "Option C", "Option D"];
+              
+              return (
+                <div 
+                  key={qAttemptItem.questionId}
+                  className={`p-4 rounded-2xl border transition-all ${
+                    isCorrect 
+                      ? 'bg-emerald-500/5 border-emerald-500/15' 
+                      : qAttemptItem.selectedOptionIndex === -1
+                      ? 'bg-slate-500/5 border-slate-500/15'
+                      : 'bg-rose-500/5 border-rose-500/15'
+                  }`}
+                >
+                  {/* Topic / Difficulty Tags */}
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                    <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400">
+                      Q{index + 1}
+                    </span>
+                    {originalQ?.topic && (
+                      <span className="text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                        {originalQ.topic}
+                      </span>
+                    )}
+                    <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${
+                      isCorrect 
+                        ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' 
+                        : qAttemptItem.selectedOptionIndex === -1
+                        ? 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400'
+                        : 'bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400'
+                    }`}>
+                      {isCorrect ? 'Correct' : qAttemptItem.selectedOptionIndex === -1 ? 'Skipped' : 'Incorrect'}
+                    </span>
+                  </div>
+
+                  {/* Question Text */}
+                  <p className="text-[12px] font-medium leading-relaxed text-slate-900 dark:text-slate-100 mb-3 select-none">
+                    {qAttemptItem.questionText}
+                  </p>
+
+                  {/* Options list */}
+                  <div className="space-y-1.5 mb-3.5">
+                    {optionsList.map((option, oidx) => {
+                      const isCorrectOption = oidx === qAttemptItem.correctOptionIndex;
+                      const isSelectedOption = oidx === qAttemptItem.selectedOptionIndex;
+                      
+                      let bgBorderClass = 'bg-slate-50/50 border-slate-200 dark:bg-black/10 dark:border-white/5 text-slate-700 dark:text-slate-300';
+                      let iconNode = null;
+                      
+                      if (isCorrectOption) {
+                        bgBorderClass = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-400 font-bold';
+                        iconNode = <Icons.Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />;
+                      } else if (isSelectedOption) {
+                        bgBorderClass = 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-400 font-bold';
+                        iconNode = <Icons.X className="w-3.5 h-3.5 text-rose-500 shrink-0" />;
+                      }
+
+                      return (
+                        <div 
+                          key={oidx}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[11px] leading-snug transition-all ${bgBorderClass}`}
+                        >
+                          <span className="font-mono text-[9px] font-black opacity-60 uppercase bg-black/5 dark:bg-white/5 w-5 h-5 rounded-full flex items-center justify-center shrink-0">
+                            {String.fromCharCode(65 + oidx)}
+                          </span>
+                          <span className="flex-1 select-none">{option}</span>
+                          {iconNode}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Explanation block */}
+                  {originalQ?.explanation && (
+                    <div className="p-3 rounded-xl bg-slate-100/60 dark:bg-black/25 border border-slate-200/50 dark:border-white/5 text-[10.5px] leading-relaxed text-slate-650 dark:text-slate-350 space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[8.5px] text-indigo-600 dark:text-indigo-400 mb-1">
+                        <Icons.BookOpen className="w-3 h-3" />
+                        <span>Explanation Solution</span>
+                      </div>
+                      <p className="select-none">{originalQ.explanation}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Back Button to return to results card */}
+          <button
+            onClick={() => setIsReviewingQuestions(false)}
+            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-[11px] uppercase tracking-widest transition-all cursor-pointer shadow-lg flex items-center justify-center gap-1.5 shrink-0"
+          >
+            <Icons.ArrowLeft className="w-4 h-4" />
+            <span>Back to Score Report</span>
+          </button>
+        </div>
+      );
+    }
+
     const correctCount = quizAttemptData.correctAnswersCount;
     const totalCount = quizAttemptData.questionsCount;
     const wrongCount = totalCount - correctCount;
@@ -435,7 +606,7 @@ export default function QuizView({
     const isSuccess = scorePct >= 70;
     
     return (
-      <div className="flex flex-col h-full bg-white/60 dark:bg-[#1A1D21]/90 backdrop-blur-xl text-slate-800 dark:text-slate-100 rounded-[24px] overflow-hidden border border-slate-200 dark:border-white/10 relative select-none animate-fade-in p-6 space-y-6 shadow-xl" id="quiz-results-screen">
+      <div className="flex flex-col h-full bg-white/60 dark:bg-[#1A1D21]/90 backdrop-blur-xl text-slate-800 dark:text-slate-100 rounded-[24px] overflow-hidden border border-slate-200 dark:border-white/10 relative select-none animate-fade-in p-6 space-y-5 shadow-xl" id="quiz-results-screen">
         {/* Header Title */}
         <div className="text-center pt-2 pb-4 shrink-0 border-b border-slate-200 dark:border-white/5">
           <div className="w-12 h-12 bg-linear-to-br from-[#2F69FF] to-indigo-600 rounded-[16px] flex items-center justify-center mx-auto mb-3 shadow-lg text-white">
@@ -533,21 +704,31 @@ export default function QuizView({
         {/* Footer actions */}
         <div className="flex-1" />
 
-        <div className="flex gap-2 pt-2 shrink-0">
+        <div className="flex flex-col gap-2 shrink-0">
           <button
-            onClick={onQuit}
-            className="flex-1 py-3.5 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold rounded-[14px] text-[10px] uppercase tracking-widest transition-all cursor-pointer"
+            onClick={() => setIsReviewingQuestions(true)}
+            className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-200 font-extrabold rounded-[14px] text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            Back
+            <Icons.BookOpen className="w-4 h-4 text-indigo-500" />
+            <span>Review Answers & Explanations</span>
           </button>
           
-          <button
-            onClick={() => onQuizFinished(quizAttemptData)}
-            className="flex-[2] py-3.5 bg-linear-to-r from-[#2F69FF] to-blue-600 hover:to-indigo-600 text-white font-black rounded-[14px] text-[11px] uppercase tracking-widest shadow-[0_4px_15px_rgba(47,105,255,0.3)] cursor-pointer transition-all flex items-center justify-center gap-2"
-          >
-            <span>Confirm & Save</span>
-            <Icons.ArrowRight className="w-4 h-4" />
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={onQuit}
+              className="flex-1 py-3 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold rounded-[14px] text-[10px] uppercase tracking-widest transition-all cursor-pointer"
+            >
+              Back
+            </button>
+            
+            <button
+              onClick={() => onQuizFinished(quizAttemptData)}
+              className="flex-[2] py-3 bg-linear-to-r from-[#2F69FF] to-blue-600 hover:to-indigo-600 text-white font-black rounded-[14px] text-[11px] uppercase tracking-widest shadow-[0_4px_15px_rgba(47,105,255,0.3)] cursor-pointer transition-all flex items-center justify-center gap-2"
+            >
+              <span>Confirm & Save</span>
+              <Icons.ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     );
