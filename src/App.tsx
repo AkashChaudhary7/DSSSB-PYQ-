@@ -949,85 +949,130 @@ export default function App() {
                   </div>
 
                   {/* Sync Statistics Overlay Box */}
-                  <div className="mt-4 bg-[#141619] rounded-xl p-3.5 border border-white/10 text-left">
-                    <div className="flex items-center gap-1.5 mb-2 border-b border-white/5 pb-1.5">
-                      <Icons.BarChart2 className="w-3.5 h-3.5 text-indigo-400" />
-                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider font-mono">Sync Statistics</span>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ delay: 0.15, duration: 0.3 }}
+                    className="mt-4 bg-gradient-to-b from-[#181a1d] to-[#121315] rounded-2xl p-4 border border-white/10 text-left shadow-2xl relative overflow-hidden"
+                  >
+                    <div className="absolute -right-8 -top-8 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl pointer-events-none" />
+                    
+                    <div className="flex items-center gap-1.5 mb-3 border-b border-white/5 pb-2">
+                      <Icons.BarChart2 className="w-4 h-4 text-indigo-400 animate-pulse" />
+                      <span className="text-[10px] font-black text-slate-200 uppercase tracking-wider font-mono">Sync Statistics</span>
                     </div>
-                    <div className="space-y-1.5 text-[10px] font-mono text-slate-400">
-                      <div className="flex justify-between items-center">
-                        <span>Offline Cache (IndexedDB):</span>
-                        <span className="font-extrabold text-white">
+                    
+                    <div className="space-y-2 text-[10px] font-mono text-slate-400">
+                      <div className="flex justify-between items-center bg-black/20 px-2.5 py-1.5 rounded-lg border border-white/5">
+                        <span className="flex items-center gap-1">
+                          <Icons.Smartphone className="w-3 h-3 text-slate-500" />
+                          Offline Cache:
+                        </span>
+                        <motion.span 
+                          key={localIndexedDBCount}
+                          initial={{ scale: 1.15, color: '#f59e0b' }}
+                          animate={{ scale: 1, color: '#ffffff' }}
+                          className="font-extrabold text-white text-[11px]"
+                        >
                           {localIndexedDBCount !== null ? `${localIndexedDBCount} Qs` : 'Counting...'}
-                        </span>
+                        </motion.span>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span>Expected Cloud Master:</span>
-                        <span className="font-extrabold text-emerald-400">
+                      <div className="flex justify-between items-center bg-black/20 px-2.5 py-1.5 rounded-lg border border-white/5">
+                        <span className="flex items-center gap-1">
+                          <Icons.Cloud className="w-3 h-3 text-slate-500" />
+                          Expected Cloud:
+                        </span>
+                        <motion.span 
+                          key={firestoreExpectedCount}
+                          initial={{ scale: 1.15 }}
+                          animate={{ scale: 1 }}
+                          className="font-extrabold text-emerald-400 text-[11px]"
+                        >
                           {firestoreExpectedCount !== null ? `${firestoreExpectedCount} Qs` : 'Querying...'}
-                        </span>
+                        </motion.span>
                       </div>
-                      <p className="text-[8px] leading-normal text-slate-500 font-sans mt-2 bg-black/30 p-1.5 rounded border border-white/5">
+                      <p className="text-[8px] leading-normal text-slate-500 font-sans mt-2.5 bg-indigo-500/5 p-2 rounded-lg border border-indigo-500/10">
                         💡 <span className="text-amber-300 font-bold">Why is content limited?</span> Caches syllabus-aligned batches for your active path to save data overhead.
                       </p>
                     </div>
 
                     {/* Recent Batches List */}
-                    <div className="mt-3.5 pt-3 border-t border-white/5">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Icons.History className="w-3 h-3 text-indigo-400" />
+                    <div className="mt-4 pt-3.5 border-t border-white/5">
+                      <div className="flex items-center gap-1.5 mb-2.5">
+                        <Icons.History className="w-3.5 h-3.5 text-indigo-400" />
                         <span className="text-[9px] font-bold text-slate-300 uppercase tracking-wider font-mono">Recent Syllabus Batches</span>
                       </div>
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         {recentBatches.map((batch, idx) => (
-                          <div key={batch.id || idx} className="flex justify-between items-center text-[9px] bg-black/40 px-2 py-1.5 rounded border border-white/5 font-mono">
-                            <div className="flex flex-col min-w-0 max-w-[160px]">
-                              <span className="font-extrabold text-slate-200 truncate">{batch.name}</span>
-                              <span className="text-[7px] text-slate-500 mt-0.5">
+                          <motion.div 
+                            initial={{ opacity: 0, x: -5 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: idx * 0.08 }}
+                            whileHover={{ scale: 1.01, x: 2, backgroundColor: "rgba(255, 255, 255, 0.04)" }}
+                            key={batch.id || idx} 
+                            className="flex justify-between items-center text-[9px] bg-black/40 px-2.5 py-2 rounded-xl border border-white/5 font-mono transition-colors"
+                          >
+                            <div className="flex flex-col min-w-0 max-w-[170px]">
+                              <span className="font-extrabold text-slate-200 truncate flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                                {batch.name}
+                              </span>
+                              <span className="text-[7px] text-slate-500 mt-0.5 flex items-center gap-1 pl-2.5">
+                                <Icons.Clock className="w-2 h-2 shrink-0" />
                                 {new Date(batch.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(batch.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                               </span>
                             </div>
-                            <span className="font-black text-amber-300 shrink-0 text-[10px]">+{batch.count} Qs</span>
-                          </div>
+                            <span className="font-black text-amber-300 shrink-0 text-[10px] bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/15">+{batch.count} Qs</span>
+                          </motion.div>
                         ))}
                       </div>
                     </div>
 
                     {/* Clear Stale Cache Button & Confirmation Flow */}
-                    <div className="mt-3.5 pt-3 border-t border-white/5 flex flex-col gap-1.5">
+                    <div className="mt-4 pt-3.5 border-t border-white/5 flex flex-col gap-2">
                       {clearCacheConfirm === 'idle' && (
-                        <button
+                        <motion.button
+                          whileHover={{ scale: 1.01, y: -0.5 }}
+                          whileTap={{ scale: 0.99 }}
                           onClick={() => setClearCacheConfirm('confirm')}
-                          className="w-full py-2 text-[9px] uppercase font-black font-mono tracking-wider rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                          className="w-full py-2.5 text-[9px] uppercase font-black font-mono tracking-wider rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                         >
                           <Icons.Trash2 className="w-3.5 h-3.5" />
                           Clear Stale Cache
-                        </button>
+                        </motion.button>
                       )}
                       {clearCacheConfirm === 'confirm' && (
-                        <div className="flex items-center gap-1.5 w-full">
-                          <button
+                        <div className="flex items-center gap-2 w-full">
+                          <motion.button
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
                             onClick={handleClearStaleCache}
-                            className="flex-1 py-2 text-[9px] uppercase font-black font-mono tracking-wider rounded bg-red-600 hover:bg-red-700 text-white border-0 transition-all cursor-pointer text-center"
+                            className="flex-1 py-2.5 text-[9px] uppercase font-black font-mono tracking-wider rounded-xl bg-red-600 hover:bg-red-700 text-white border-0 transition-all cursor-pointer text-center font-bold"
                           >
                             Confirm Clear
-                          </button>
-                          <button
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
                             onClick={() => setClearCacheConfirm('idle')}
-                            className="px-3 py-2 text-[9px] uppercase font-black font-mono tracking-wider rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-all cursor-pointer text-center"
+                            className="px-4 py-2.5 text-[9px] uppercase font-black font-mono tracking-wider rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-all cursor-pointer text-center"
                           >
                             Cancel
-                          </button>
+                          </motion.button>
                         </div>
                       )}
                       {clearCacheConfirm === 'success' && (
-                        <div className="w-full py-2 text-[9px] font-bold font-mono text-center rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center gap-1.5">
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="w-full py-2.5 text-[9px] font-bold font-mono text-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center gap-1.5"
+                        >
                           <Icons.Check className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
                           Cache Fully Wiped!
-                        </div>
+                        </motion.div>
                       )}
                     </div>
-                  </div>
+                  </motion.div>
 
                   {/* Tiny animated signal bar indicators */}
                   <div className="flex justify-center items-center gap-1 mt-5 opacity-40">
