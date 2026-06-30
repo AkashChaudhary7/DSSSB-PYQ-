@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
 const HomeView = lazy(() => import('./components/HomeView'));
 const PracticeView = lazy(() => import('./components/PracticeView'));
 const QuizView = lazy(() => import('./components/QuizView'));
@@ -40,7 +40,7 @@ import { onAuthStateChanged, User, signInAnonymously } from 'firebase/auth';
 import * as Icons from 'lucide-react';
 import { getQuestionsCached, clearQuestionsCached } from './lib/indexedDB';
 import { syncQuestionsFromFirestore } from './lib/questionSync';
-import { syncGlobalData, forceCloudPull } from './lib/syncEngine';
+import { syncGlobalData, forceCloudPull, getCloudQuestionCount } from './lib/syncEngine';
 import { motion, AnimatePresence } from 'motion/react';
 
 type MainView = 'home' | 'practice' | 'quiz' | 'bookmarks' | 'analytics' | 'generator' | 'roadmap';
@@ -210,9 +210,58 @@ export default function App() {
   };
 
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncStatus, setSyncStatus] = useState('');
   const [pullProgress, setPullProgress] = useState(0); // 0 to 1
   const startY = useRef(0);
   const isPulling = useRef(false);
+
+  const [localIndexedDBCount, setLocalIndexedDBCount] = useState<number | null>(null);
+  const [firestoreExpectedCount, setFirestoreExpectedCount] = useState<number | null>(null);
+  const [clearCacheConfirm, setClearCacheConfirm] = useState<'idle' | 'confirm' | 'success'>('idle');
+
+  const recentBatches = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('cs_mcq_recent_batches');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.slice(0, 3);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to parse recent batches", e);
+    }
+    // Return fallback recent batches if none exist yet
+    return [
+      { id: 'b_core_dsssb', name: 'DSSSB CS Core Syllabus Batch', timestamp: new Date(Date.now() - 3600000 * 2.5).toISOString(), count: 45 },
+      { id: 'b_quant_dsssb', name: 'DSSSB Quant Practice Batch', timestamp: new Date(Date.now() - 3600000 * 24).toISOString(), count: 32 },
+      { id: 'b_pyq_dsssb', name: 'DSSSB PYQ Essentials Batch', timestamp: new Date(Date.now() - 3600000 * 48).toISOString(), count: 28 }
+    ];
+  }, [isSyncing]);
+
+  useEffect(() => {
+    if (isSyncing) {
+      const fetchSyncStats = async () => {
+        try {
+          const localQs = await getQuestionsCached();
+          setLocalIndexedDBCount(localQs.length);
+        } catch (e) {
+          console.error("Failed to read local questions count for sync stats:", e);
+        }
+        try {
+          const cloudCount = await getCloudQuestionCount();
+          setFirestoreExpectedCount(cloudCount);
+        } catch (e) {
+          console.error("Failed to read cloud questions count for sync stats:", e);
+        }
+      };
+      fetchSyncStats();
+    } else {
+      setLocalIndexedDBCount(null);
+      setFirestoreExpectedCount(null);
+    }
+  }, [isSyncing]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const container = document.getElementById('main-view-container');
@@ -236,9 +285,14 @@ export default function App() {
   const handleTouchEnd = async () => {
     if (isPulling.current && pullProgress > 0.8 && !isSyncing) {
       setIsSyncing(true);
+      setSyncProgress(2);
+      setSyncStatus('Starting cloud sync...');
       try {
         const selectedExams = getSelectedExams();
-        const syncedQs = await syncQuestionsFromFirestore(selectedExams);
+        const syncedQs = await syncQuestionsFromFirestore(selectedExams, (progress, details) => {
+          setSyncProgress(progress);
+          setSyncStatus(details);
+        });
         if (syncedQs && syncedQs.length > 0) {
           localStorage.setItem('cs_mcq_last_sync_time', Date.now().toString());
         }
@@ -249,7 +303,9 @@ export default function App() {
       setTimeout(() => {
         setIsSyncing(false);
         setPullProgress(0);
-      }, 800); // little delay to show success
+        setSyncProgress(0);
+        setSyncStatus('');
+      }, 1000); // little delay to show success
     } else {
       setPullProgress(0);
     }
@@ -384,6 +440,22 @@ export default function App() {
       setFirestoreSyncError(err?.message || String(err));
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  const handleClearStaleCache = async () => {
+    try {
+      await clearQuestionsCached();
+      localStorage.removeItem('cs_mcq_questions_last_sync_timestamp');
+      localStorage.removeItem('cs_mcq_recent_batches');
+      setLocalIndexedDBCount(0);
+      await syncLocalState();
+      setClearCacheConfirm('success');
+      setTimeout(() => {
+        setClearCacheConfirm('idle');
+      }, 4000);
+    } catch (e) {
+      console.error("Failed to clear stale cache:", e);
     }
   };
 
@@ -644,96 +716,161 @@ export default function App() {
       <div className="w-full max-w-md md:max-w-4xl lg:max-w-5xl xl:max-w-6xl h-screen md:h-[90vh] md:max-h-[920px] shadow-2xl md:rounded-3xl border border-slate-250/50 dark:border-white/5 overflow-hidden flex flex-col relative transform transition-all bg-[#eef4fa] dark:bg-[#0B0C0E] text-slate-800 dark:text-slate-100">
         
         {/* Sleek top toolbar info row with top theme color bar */}
-        <header className="relative p-4 border-b border-slate-150 dark:border-white/5 flex items-center justify-between bg-white/90 dark:bg-[#161A1D]/90 backdrop-blur-md shrink-0 text-slate-800 dark:text-slate-200 gap-2 select-none">
-          {/* Accent theme line */}
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 z-50" />
-          <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => setView('home')}>
-            <div 
-              className="p-1.5 bg-blue-50 dark:bg-indigo-950/40 border border-blue-100 dark:border-white/10 rounded-lg shrink-0"
-            >
-              <Icons.GraduationCap className="w-4 h-4 text-blue-600 dark:text-indigo-400 font-bold" />
+        {view !== 'practice' && view !== 'quiz' && (
+          <header className="relative p-4 border-b border-slate-150 dark:border-white/5 flex items-center justify-between bg-white/90 dark:bg-[#161A1D]/90 backdrop-blur-md shrink-0 text-slate-800 dark:text-slate-200 gap-2 select-none">
+            {/* Accent theme line */}
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 z-50" />
+            <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => setView('home')}>
+              <div 
+                className="p-1.5 bg-blue-50 dark:bg-indigo-950/40 border border-blue-100 dark:border-white/10 rounded-lg shrink-0"
+              >
+                <Icons.GraduationCap className="w-4 h-4 text-blue-600 dark:text-indigo-400 font-bold" />
+              </div>
+              <div className="flex flex-col text-left">
+                <h1 className="text-xs font-black text-slate-900 dark:text-slate-100 tracking-tight leading-none uppercase font-display">AT Mocks</h1>
+                <span className="text-[8px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 leading-none font-bold">by Akash Chaudhary</span>
+              </div>
             </div>
-            <div className="flex flex-col text-left">
-              <h1 className="text-xs font-black text-slate-900 dark:text-slate-100 tracking-tight leading-none uppercase font-display">AT Mocks</h1>
-              <span className="text-[8px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 leading-none font-bold">by Akash Chaudhary</span>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2">
-            {!isInstalled && (deferredPrompt || showIOSPrompt) && (
+            <div className="flex items-center gap-2">
+              {!isInstalled && (deferredPrompt || showIOSPrompt) && (
+                <button
+                  onClick={handleInstallClick}
+                  className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+                  title="Install App"
+                >
+                  <Icons.Download className="w-3.5 h-3.5" />
+                  <span>Install</span>
+                </button>
+              )}
+
+              {/* Password protected Admin icon - Highly premium & contrasting lock badge */}
               <button
-                onClick={handleInstallClick}
-                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
-                title="Install App"
+                onClick={handleAdminClick}
+                className={`px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer relative overflow-hidden group ${
+                  view === 'generator'
+                    ? 'bg-gradient-to-r from-amber-500 to-yellow-600 border-amber-400 text-white shadow-md shadow-amber-500/20'
+                    : adminUnlocked
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-xs'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 hover:bg-slate-850'
+                }`}
+                title={adminUnlocked ? "Open Admin Panel (Unlocked)" : "Admin Password Unlock"}
+                id="admin-security-lock-btn"
               >
-                <Icons.Download className="w-3.5 h-3.5" />
-                <span>Install</span>
-              </button>
-            )}
-
-            {/* Password protected Admin icon - Highly premium & contrasting lock badge */}
-            <button
-              onClick={handleAdminClick}
-              className={`px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer relative overflow-hidden group ${
-                view === 'generator'
-                  ? 'bg-gradient-to-r from-amber-500 to-yellow-600 border-amber-400 text-white shadow-md shadow-amber-500/20'
-                  : adminUnlocked
-                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-xs'
-                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 hover:bg-slate-850'
-              }`}
-              title={adminUnlocked ? "Open Admin Panel (Unlocked)" : "Admin Password Unlock"}
-              id="admin-security-lock-btn"
-            >
-              {adminUnlocked ? (
-                <div className="flex items-center gap-1">
-                  <Icons.ShieldAlert className="w-4 h-4 text-amber-400 animate-bounce" />
-                  <span className="text-[9px] font-black uppercase tracking-wider font-mono">Staff</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1">
-                  <Icons.ShieldAlert className="w-4 h-4 text-slate-400 group-hover:text-amber-400 transition-colors" />
-                  <span className="text-[9px] font-black uppercase tracking-wider font-mono text-slate-500 group-hover:text-amber-400 transition-colors">Admin</span>
-                </div>
-              )}
-            </button>
-
-            {/* Dark Mode sliding scroll switch */}
-            <div 
-              onClick={toggleTheme}
-              className="relative w-11 h-6 rounded-full p-0.5 cursor-pointer flex items-center transition-all bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10"
-              id="theme-scroll-toggle"
-              title="Switch Theme Mode"
-            >
-              <motion.div
-                layout
-                className="w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-md bg-white dark:bg-neon-lime"
-                animate={{ x: theme === 'dark' ? 18 : 0 }}
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              >
-                {theme === 'dark' ? (
-                  <Icons.Moon className="w-2.5 h-2.5 text-black" />
+                {adminUnlocked ? (
+                  <div className="flex items-center gap-1">
+                    <Icons.ShieldAlert className="w-4 h-4 text-amber-400 animate-bounce" />
+                    <span className="text-[9px] font-black uppercase tracking-wider font-mono">Staff</span>
+                  </div>
                 ) : (
-                  <Icons.Sun className="w-2.5 h-2.5 text-amber-500" />
+                  <div className="flex items-center gap-1">
+                    <Icons.ShieldAlert className="w-4 h-4 text-slate-400 group-hover:text-amber-400 transition-colors" />
+                    <span className="text-[9px] font-black uppercase tracking-wider font-mono text-slate-500 group-hover:text-amber-400 transition-colors">Admin</span>
+                  </div>
                 )}
-              </motion.div>
+              </button>
+
+              {/* Dark Mode sliding scroll switch */}
+              <div 
+                onClick={toggleTheme}
+                className="relative w-11 h-6 rounded-full p-0.5 cursor-pointer flex items-center transition-all bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10"
+                id="theme-scroll-toggle"
+                title="Switch Theme Mode"
+              >
+                <motion.div
+                  layout
+                  className="w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-md bg-white dark:bg-neon-lime"
+                  animate={{ x: theme === 'dark' ? 18 : 0 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                >
+                  {theme === 'dark' ? (
+                    <Icons.Moon className="w-2.5 h-2.5 text-black" />
+                  ) : (
+                    <Icons.Sun className="w-2.5 h-2.5 text-amber-500" />
+                  )}
+                </motion.div>
+              </div>
+
+              <button
+                onClick={() => setShowAuthScreen(!showAuthScreen)}
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900 hover:bg-slate-150 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 cursor-pointer transition-colors overflow-hidden"
+                title="Toggle Account Access"
+                id="global-auth-toggle-btn"
+              >
+                {currentUser ? (
+                  <div className="w-4.5 h-4.5 rounded-full bg-blue-100 dark:bg-indigo-900/60 flex items-center justify-center text-[10px] font-bold text-blue-700 dark:text-indigo-300">
+                    {userProfile?.displayName?.charAt(0).toUpperCase() || currentUser.email?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                ) : (
+                  <Icons.User className="w-4 h-4 text-blue-600 dark:text-indigo-400" />
+                )}
+              </button>
+            </div>
+          </header>
+        )}
+
+        {/* Full-Screen Title Header for Practice and Quiz View */}
+        {(view === 'practice' || view === 'quiz') && (
+          <header className="shrink-0 bg-white dark:bg-[#060813] border-b border-slate-200/60 dark:border-white/5 px-4 py-3 flex items-center justify-between sticky top-0 z-40 animate-fade-in shadow-xs select-none">
+            {/* Accent theme line */}
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 z-50" />
+            <div className="flex items-center gap-3">
+              <motion.button
+                whileHover={{ scale: 1.1, x: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  if (view === 'quiz') {
+                    if (window.confirm("Are you sure you want to quit the current exam session? Progress will not be saved.")) {
+                      setView('practice');
+                    }
+                  } else {
+                    setView('home');
+                  }
+                }}
+                className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer flex items-center justify-center border border-transparent dark:border-white/5"
+                title="Go Back"
+              >
+                <Icons.ArrowLeft className="w-5 h-5" />
+              </motion.button>
+              
+              <div className="text-left">
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500 dark:text-indigo-400 block font-mono">
+                  {view === 'quiz' ? 'LIVE QUIZ MODULE' : 'PRACTICE ARENA'}
+                </span>
+                <h1 className="text-sm font-extrabold text-slate-900 dark:text-white tracking-tight leading-none mt-0.5">
+                  {view === 'quiz' ? 'Exam Assessment Drill' : 'Syllabus Topic Explorer'}
+                </h1>
+              </div>
             </div>
 
-            <button
-              onClick={() => setShowAuthScreen(!showAuthScreen)}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900 hover:bg-slate-150 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 cursor-pointer transition-colors overflow-hidden"
-              title="Toggle Account Access"
-              id="global-auth-toggle-btn"
-            >
-              {currentUser ? (
-                <div className="w-4.5 h-4.5 rounded-full bg-blue-100 dark:bg-indigo-900/60 flex items-center justify-center text-[10px] font-bold text-blue-700 dark:text-indigo-300">
-                  {userProfile?.displayName?.charAt(0).toUpperCase() || currentUser.email?.charAt(0).toUpperCase() || 'U'}
-                </div>
-              ) : (
-                <Icons.User className="w-4 h-4 text-blue-600 dark:text-indigo-400" />
-              )}
-            </button>
-          </div>
-        </header>
+            <div className="flex items-center gap-3">
+              {/* Status active indicator */}
+              <div className="hidden xs:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 dark:text-indigo-400 text-[10px] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Session Active</span>
+              </div>
+              
+              {/* Theme Toggle directly accessible inside full-screen views */}
+              <div 
+                onClick={toggleTheme}
+                className="relative w-11 h-6 rounded-full p-0.5 cursor-pointer flex items-center transition-all bg-slate-150 dark:bg-slate-900 border border-slate-300 dark:border-white/10"
+              >
+                <motion.div
+                  layout
+                  className="w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-md bg-white dark:bg-indigo-400"
+                  animate={{ x: theme === 'dark' ? 18 : 0 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                >
+                  {theme === 'dark' ? (
+                    <Icons.Moon className="w-2.5 h-2.5 text-black" />
+                  ) : (
+                    <Icons.Sun className="w-2.5 h-2.5 text-amber-500" />
+                  )}
+                </motion.div>
+              </div>
+            </div>
+          </header>
+        )}
 
         {/* Scrollable View Containment Area */}
         <main 
@@ -758,6 +895,149 @@ export default function App() {
               <Icons.RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin text-blue-500' : 'text-slate-400'}`} />
             </div>
           </motion.div>
+
+          {/* Detailed Cloud Sync Progress Overlay */}
+          <AnimatePresence>
+            {isSyncing && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-none"
+                id="sync-progress-overlay"
+              >
+                <motion.div
+                  initial={{ scale: 0.95, y: 15 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0.95, y: 15 }}
+                  className="bg-[#1A1D21] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl text-center relative overflow-hidden"
+                >
+                  {/* Decorative ambient background light */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-12 bg-indigo-500/10 blur-xl rounded-full" />
+                  
+                  <div className="mx-auto w-12 h-12 bg-indigo-500/10 border border-indigo-500/20 rounded-full flex items-center justify-center text-indigo-400 mb-4 animate-pulse">
+                    <Icons.CloudLightning className="w-6 h-6 animate-bounce" />
+                  </div>
+                  
+                  <h3 className="text-base font-black text-slate-100 tracking-tight">Syncing Exam Database</h3>
+                  <p className="text-[11px] text-slate-400 mt-1 mb-6">
+                    Updating offline syllabus indices with latest master curriculum...
+                  </p>
+
+                  {/* Progress Ring / Percentage */}
+                  <div className="relative flex items-center justify-center mb-6">
+                    <div className="text-4xl font-extrabold text-white font-mono tracking-tighter">
+                      {syncProgress}%
+                    </div>
+                  </div>
+
+                  {/* Premium Progress Bar */}
+                  <div className="w-full bg-white/5 rounded-full h-2.5 overflow-hidden mb-3 border border-white/5">
+                    <motion.div 
+                      className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-full rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${syncProgress}%` }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                    />
+                  </div>
+
+                  {/* Live details text */}
+                  <div className="bg-black/20 rounded-xl p-3 border border-white/5 min-h-[48px] flex items-center justify-center">
+                    <p className="text-[10px] font-mono text-slate-300 leading-relaxed break-all">
+                      {syncStatus || 'Contacting cloud server...'}
+                    </p>
+                  </div>
+
+                  {/* Sync Statistics Overlay Box */}
+                  <div className="mt-4 bg-[#141619] rounded-xl p-3.5 border border-white/10 text-left">
+                    <div className="flex items-center gap-1.5 mb-2 border-b border-white/5 pb-1.5">
+                      <Icons.BarChart2 className="w-3.5 h-3.5 text-indigo-400" />
+                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider font-mono">Sync Statistics</span>
+                    </div>
+                    <div className="space-y-1.5 text-[10px] font-mono text-slate-400">
+                      <div className="flex justify-between items-center">
+                        <span>Offline Cache (IndexedDB):</span>
+                        <span className="font-extrabold text-white">
+                          {localIndexedDBCount !== null ? `${localIndexedDBCount} Qs` : 'Counting...'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Expected Cloud Master:</span>
+                        <span className="font-extrabold text-emerald-400">
+                          {firestoreExpectedCount !== null ? `${firestoreExpectedCount} Qs` : 'Querying...'}
+                        </span>
+                      </div>
+                      <p className="text-[8px] leading-normal text-slate-500 font-sans mt-2 bg-black/30 p-1.5 rounded border border-white/5">
+                        💡 <span className="text-amber-300 font-bold">Why is content limited?</span> Caches syllabus-aligned batches for your active path to save data overhead.
+                      </p>
+                    </div>
+
+                    {/* Recent Batches List */}
+                    <div className="mt-3.5 pt-3 border-t border-white/5">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Icons.History className="w-3 h-3 text-indigo-400" />
+                        <span className="text-[9px] font-bold text-slate-300 uppercase tracking-wider font-mono">Recent Syllabus Batches</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {recentBatches.map((batch, idx) => (
+                          <div key={batch.id || idx} className="flex justify-between items-center text-[9px] bg-black/40 px-2 py-1.5 rounded border border-white/5 font-mono">
+                            <div className="flex flex-col min-w-0 max-w-[160px]">
+                              <span className="font-extrabold text-slate-200 truncate">{batch.name}</span>
+                              <span className="text-[7px] text-slate-500 mt-0.5">
+                                {new Date(batch.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(batch.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                            <span className="font-black text-amber-300 shrink-0 text-[10px]">+{batch.count} Qs</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Clear Stale Cache Button & Confirmation Flow */}
+                    <div className="mt-3.5 pt-3 border-t border-white/5 flex flex-col gap-1.5">
+                      {clearCacheConfirm === 'idle' && (
+                        <button
+                          onClick={() => setClearCacheConfirm('confirm')}
+                          className="w-full py-2 text-[9px] uppercase font-black font-mono tracking-wider rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Icons.Trash2 className="w-3.5 h-3.5" />
+                          Clear Stale Cache
+                        </button>
+                      )}
+                      {clearCacheConfirm === 'confirm' && (
+                        <div className="flex items-center gap-1.5 w-full">
+                          <button
+                            onClick={handleClearStaleCache}
+                            className="flex-1 py-2 text-[9px] uppercase font-black font-mono tracking-wider rounded bg-red-600 hover:bg-red-700 text-white border-0 transition-all cursor-pointer text-center"
+                          >
+                            Confirm Clear
+                          </button>
+                          <button
+                            onClick={() => setClearCacheConfirm('idle')}
+                            className="px-3 py-2 text-[9px] uppercase font-black font-mono tracking-wider rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-all cursor-pointer text-center"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                      {clearCacheConfirm === 'success' && (
+                        <div className="w-full py-2 text-[9px] font-bold font-mono text-center rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center gap-1.5">
+                          <Icons.Check className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
+                          Cache Fully Wiped!
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tiny animated signal bar indicators */}
+                  <div className="flex justify-center items-center gap-1 mt-5 opacity-40">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                    <span className="text-[9px] font-mono tracking-widest text-emerald-400 uppercase font-bold">Secure connection active</span>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
           
           {/* Admin Password Prompt Overlay Modal */}
           <AnimatePresence>
@@ -904,6 +1184,7 @@ export default function App() {
                     isMockExam={quizConfig.isMockExam}
                     customCount={quizConfig.customCount}
                     overrideQuestions={quizConfig.overrideQuestions}
+                    theme={theme}
                   />
                 )}
 
@@ -981,78 +1262,80 @@ export default function App() {
         </main>
 
         {/* Dynamic global navigation bottom tab controller with central floating circular Home button */}
-        <footer className="shrink-0 bg-slate-100/70 dark:bg-[#0c101d]/85 backdrop-blur-xl border-t border-slate-200/50 dark:border-white/5 flex justify-between items-center px-4 py-2 relative z-40 shadow-2xl">
-          {/* Accent theme line */}
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500/30 via-purple-500/30 to-emerald-500/30" />
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setView('roadmap')}
-            className={`flex-1 flex flex-col items-center gap-1 text-[8px] font-extrabold font-sans cursor-pointer transition-all duration-200 ${view === 'roadmap' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-450 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-            id="tab-roadmap"
-          >
-            <div className={`p-1.5 rounded-xl transition-all ${view === 'roadmap' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.15)] border border-indigo-500/20' : 'text-slate-400 border border-transparent'}`}>
-              <Icons.Route className="w-4 h-4" />
-            </div>
-            <span>Roadmap</span>
-          </motion.button>
-
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setView('practice')}
-            className={`flex-1 flex flex-col items-center gap-1 text-[8px] font-extrabold font-sans cursor-pointer transition-all duration-200 ${view === 'practice' || view === 'quiz' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-450 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-            id="tab-practice-arena"
-          >
-            <div className={`p-1.5 rounded-xl transition-all ${view === 'practice' || view === 'quiz' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.15)] border border-indigo-500/20' : 'text-slate-450 border border-transparent'}`}>
-              <Icons.Compass className="w-4 h-4" />
-            </div>
-            <span>Practice</span>
-          </motion.button>
-
-          {/* Centralized larger circular Home button */}
-          <div className="flex-1 flex flex-col items-center justify-center relative -mt-4">
+        {view !== 'practice' && view !== 'quiz' && (
+          <footer className="shrink-0 bg-slate-100/70 dark:bg-[#0c101d]/85 backdrop-blur-xl border-t border-slate-200/50 dark:border-white/5 flex justify-between items-center px-4 py-2 relative z-40 shadow-2xl">
+            {/* Accent theme line */}
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500/30 via-purple-500/30 to-emerald-500/30" />
             <motion.button
-              whileHover={{ scale: 1.15, y: -2 }}
+              whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setView('home')}
-              className={`flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/35 border border-white/20 cursor-pointer transition-all ${view === 'home' || view === 'generator' ? 'ring-4 ring-indigo-500/25' : ''}`}
-              id="tab-home"
-              title="Home Hub"
+              onClick={() => setView('roadmap')}
+              className={`flex-1 flex flex-col items-center gap-1 text-[8px] font-extrabold font-sans cursor-pointer transition-all duration-200 ${view === 'roadmap' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-450 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+              id="tab-roadmap"
             >
-              <Icons.Home className="w-5.5 h-5.5" />
+              <div className={`p-1.5 rounded-xl transition-all ${view === 'roadmap' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.15)] border border-indigo-500/20' : 'text-slate-400 border border-transparent'}`}>
+                <Icons.Route className="w-4 h-4" />
+              </div>
+              <span>Roadmap</span>
             </motion.button>
-            <span className={`text-[8.5px] font-black tracking-wider uppercase mt-1 ${view === 'home' || view === 'generator' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-450'}`}>
-              Home
-            </span>
-          </div>
 
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setView('analytics')}
-            className={`flex-1 flex flex-col items-center gap-1 text-[8px] font-extrabold font-sans cursor-pointer transition-all duration-200 ${view === 'analytics' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-450 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-            id="tab-analytics"
-          >
-            <div className={`p-1.5 rounded-xl transition-all ${view === 'analytics' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.15)] border border-indigo-500/20' : 'text-slate-450 border border-transparent'}`}>
-              <Icons.BarChart3 className="w-4 h-4" />
-            </div>
-            <span>Analysis</span>
-          </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setView('practice')}
+              className={`flex-1 flex flex-col items-center gap-1 text-[8px] font-extrabold font-sans cursor-pointer transition-all duration-200 ${view === 'practice' || view === 'quiz' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-450 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+              id="tab-practice-arena"
+            >
+              <div className={`p-1.5 rounded-xl transition-all ${view === 'practice' || view === 'quiz' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.15)] border border-indigo-500/20' : 'text-slate-450 border border-transparent'}`}>
+                <Icons.Compass className="w-4 h-4" />
+              </div>
+              <span>Practice</span>
+            </motion.button>
 
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setView('bookmarks')}
-            className={`flex-1 flex flex-col items-center gap-1 text-[8px] font-extrabold font-sans cursor-pointer transition-all duration-200 ${view === 'bookmarks' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-450 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-            id="tab-rev-deck"
-          >
-            <div className={`p-1.5 rounded-xl transition-all ${view === 'bookmarks' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.15)] border border-indigo-500/20' : 'text-slate-450 border border-transparent'}`}>
-              <Icons.Bookmark className="w-4 h-4" />
+            {/* Centralized larger circular Home button */}
+            <div className="flex-1 flex flex-col items-center justify-center relative -mt-4">
+              <motion.button
+                whileHover={{ scale: 1.15, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setView('home')}
+                className={`flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/35 border border-white/20 cursor-pointer transition-all ${view === 'home' || view === 'generator' ? 'ring-4 ring-indigo-500/25' : ''}`}
+                id="tab-home"
+                title="Home Hub"
+              >
+                <Icons.Home className="w-5.5 h-5.5" />
+              </motion.button>
+              <span className={`text-[8.5px] font-black tracking-wider uppercase mt-1 ${view === 'home' || view === 'generator' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-450'}`}>
+                Home
+              </span>
             </div>
-            <span>Revision</span>
-          </motion.button>
-        </footer>
+
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setView('analytics')}
+              className={`flex-1 flex flex-col items-center gap-1 text-[8px] font-extrabold font-sans cursor-pointer transition-all duration-200 ${view === 'analytics' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-450 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+              id="tab-analytics"
+            >
+              <div className={`p-1.5 rounded-xl transition-all ${view === 'analytics' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.15)] border border-indigo-500/20' : 'text-slate-450 border border-transparent'}`}>
+                <Icons.BarChart3 className="w-4 h-4" />
+              </div>
+              <span>Analysis</span>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setView('bookmarks')}
+              className={`flex-1 flex flex-col items-center gap-1 text-[8px] font-extrabold font-sans cursor-pointer transition-all duration-200 ${view === 'bookmarks' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-450 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+              id="tab-rev-deck"
+            >
+              <div className={`p-1.5 rounded-xl transition-all ${view === 'bookmarks' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.15)] border border-indigo-500/20' : 'text-slate-450 border border-transparent'}`}>
+                <Icons.Bookmark className="w-4 h-4" />
+              </div>
+              <span>Revision</span>
+            </motion.button>
+          </footer>
+        )}
 
       </div>
 
