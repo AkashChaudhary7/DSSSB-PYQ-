@@ -9,6 +9,7 @@ import { getBookmarks, getExamsConfig, getSelectedExams, saveSelectedExams, isQu
 import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import GlobalSearch from './GlobalSearch';
+import { getCloudQuestionCount } from '../lib/syncEngine';
 
 interface HomeViewProps {
   isLoading?: boolean;
@@ -49,6 +50,7 @@ export default function HomeView({
   const [examsConfig, setExamsConfig] = useState<ExamConfig[]>([]);
   const [selectedExams, setSelectedExams] = useState<string[]>([]);
   const [showPathSelector, setShowPathSelector] = useState(false);
+  const [firestoreTotalCount, setFirestoreTotalCount] = useState<number | null>(null);
 
   // Load configuration and active choices
   useEffect(() => {
@@ -60,6 +62,19 @@ export default function HomeView({
     window.addEventListener('exams-config-updated', load);
     return () => window.removeEventListener('exams-config-updated', load);
   }, [currentExam]);
+
+  // Fetch Firestore total question count
+  useEffect(() => {
+    const fetchCloudCount = async () => {
+      try {
+        const count = await getCloudQuestionCount();
+        setFirestoreTotalCount(count);
+      } catch (e) {
+        console.error("Failed to fetch cloud question count in HomeView:", e);
+      }
+    };
+    fetchCloudCount();
+  }, [questionPool]);
 
   const currentExamConfig = useMemo(() => {
     return examsConfig.find(e => e.id === currentExam) || examsConfig[0] || null;
@@ -423,7 +438,9 @@ export default function HomeView({
               Total Qs
               <Icons.Info className="w-2.5 h-2.5 cursor-help text-slate-350 hover:text-amber-300 dark:text-slate-400 dark:hover:text-amber-300 transition-colors shrink-0" title="Offline-cached questions present in IndexedDB on this device. Fetching the latest syllabus batch is triggered via Pull Qs." />
             </span>
-            <span className="text-[13px] font-black font-mono tracking-tight mt-1 block">{totalExamQuestionsCount}</span>
+            <span className="text-[13px] font-black font-mono tracking-tight mt-1 block">
+              {totalExamQuestionsCount} <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold">({firestoreTotalCount !== null ? firestoreTotalCount : '...'} Cloud)</span>
+            </span>
           </div>
           <div className="border-l border-white/10 group/stat cursor-default">
             <span className={`text-[8px] block font-bold tracking-widest uppercase font-mono transition-colors ${theme === 'dark' ? 'text-slate-400 group-hover/stat:text-slate-300' : 'text-blue-200 group-hover/stat:text-blue-100'}`}>Accuracy</span>
