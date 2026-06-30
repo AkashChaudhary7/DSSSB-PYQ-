@@ -11,7 +11,7 @@ import { runDiagnosticLogs } from '../lib/firebase';
 import { getCloudQuestionCount } from '../lib/syncEngine';
 import * as Icons from 'lucide-react';
 import { jsPDF } from 'jspdf';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface DashboardProps {
   isLoading?: boolean;
@@ -899,53 +899,111 @@ export default function Dashboard({
           </div>
 
           {/* Firestore & Cloud Diagnostics Block */}
-          <div className={`p-3.5 rounded-xl border text-left ${theme === 'dark' ? 'bg-slate-950/40 border-white/5' : 'bg-slate-100/60 border-slate-200'} flex flex-col gap-3 mt-4`}>
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 w-full">
-              <div className="text-left">
-                <h4 className="text-xs font-bold flex items-center gap-1 text-slate-800 dark:text-slate-100">
-                  <Icons.Activity className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className={`p-4 rounded-2xl border text-left relative overflow-hidden transition-all ${
+              theme === 'dark' 
+                ? 'bg-gradient-to-br from-slate-950/60 to-slate-950/30 border-white/5 shadow-2xl hover:border-indigo-500/20' 
+                : 'bg-gradient-to-br from-white to-slate-50/50 border-slate-200 shadow-md hover:border-indigo-500/30'
+            } flex flex-col gap-3.5 mt-4 group/diagnostics`}
+          >
+            {/* Ambient subtle glow background */}
+            <div className="absolute -right-12 -top-12 w-32 h-32 bg-indigo-500/5 dark:bg-indigo-400/5 rounded-full blur-2xl group-hover/diagnostics:bg-indigo-500/10 transition-colors duration-500 pointer-events-none" />
+            
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 w-full relative z-10">
+              <div className="text-left flex-1">
+                <h4 className="text-xs font-extrabold flex items-center gap-1.5 text-slate-800 dark:text-slate-100 font-sans tracking-tight">
+                  <span className="relative flex h-2 w-2">
+                    {loadingCloudCount ? (
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    ) : null}
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${loadingCloudCount ? 'bg-indigo-500' : 'bg-slate-400 dark:bg-slate-500'}`}></span>
+                  </span>
+                  <Icons.Activity className="w-4 h-4 text-indigo-500 dark:text-indigo-400 animate-pulse shrink-0" />
                   Run Live Firebase & Cloud Diagnostics
                 </h4>
-                <p className="text-[10px] mt-0.5 leading-relaxed text-slate-500 dark:text-slate-400">
-                  Performs a live audit querying the Firestore collections and runs <code className="bg-black/10 dark:bg-white/5 px-1 py-0.5 rounded font-mono">runDiagnosticLogs()</code> to verify Firebase Rules permissions and cloud vs local counts.
+                <p className="text-[10px] mt-1 leading-relaxed text-slate-500 dark:text-slate-400 font-medium">
+                  Performs a live audit querying the Firestore collections and runs <code className="bg-black/5 dark:bg-white/5 px-1 py-0.5 rounded font-mono text-indigo-500 dark:text-indigo-300">runDiagnosticLogs()</code> to verify Firebase Rules permissions and cloud vs local counts.
                 </p>
               </div>
-              <button
+              
+              <motion.button
+                whileHover={{ scale: 1.02, y: -1 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={handleRunLiveDiagnostics}
                 disabled={loadingCloudCount}
-                className={`px-4 py-2.5 disabled:opacity-50 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-xl cursor-pointer shadow-md flex items-center gap-1.5 font-mono shrink-0 border-0 ${
-                  theme === 'dark' ? 'bg-indigo-500 hover:bg-indigo-600 text-white' : 'bg-[#2F69FF] hover:bg-[#1e40af] text-white'
+                className={`px-4.5 py-2.5 disabled:opacity-50 text-white font-black text-[10px] uppercase tracking-wider rounded-xl cursor-pointer shadow-lg flex items-center gap-2 font-mono shrink-0 border-0 transition-all ${
+                  theme === 'dark' 
+                    ? 'bg-indigo-600 hover:bg-indigo-500 text-white hover:shadow-indigo-500/10' 
+                    : 'bg-[#2F69FF] hover:bg-[#1e40af] text-white hover:shadow-blue-500/10'
                 }`}
               >
                 {loadingCloudCount ? (
                   <>
-                    <Icons.Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Running Diagnostics...
+                    <Icons.Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                    Running...
                   </>
                 ) : (
                   <>
-                    <Icons.Play className="w-3 h-3" />
-                    Run Diagnostics
+                    <Icons.Terminal className="w-3.5 h-3.5" />
+                    Run Diagnostic
                   </>
                 )}
-              </button>
+              </motion.button>
             </div>
 
             {/* Diagnostic Results Console */}
-            {diagnosticLogs.length > 0 && (
-              <div className="bg-black/90 text-[10px] font-mono p-3 rounded-lg border border-white/10 max-h-48 overflow-y-auto space-y-1 text-slate-300">
-                <div className="text-amber-400 font-bold border-b border-white/10 pb-1 mb-1.5 flex justify-between items-center">
-                  <span>SYSTEM DIAGNOSTIC RESULTS</span>
-                  <span className="text-[8px] opacity-75">LIVE FEED</span>
-                </div>
-                {diagnosticLogs.map((log, index) => (
-                  <div key={index} className="leading-relaxed">
-                    {log}
+            <AnimatePresence>
+              {diagnosticLogs.length > 0 && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.25, ease: "easeInOut" }}
+                  className="overflow-hidden"
+                >
+                  <div className="bg-slate-950 text-[10px] font-mono p-4 rounded-xl border border-white/5 max-h-56 overflow-y-auto space-y-1.5 text-slate-300 relative shadow-inner custom-scrollbar">
+                    {/* Retro Terminal Scan Line */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-indigo-500/2 to-transparent pointer-events-none animate-scan-line" />
+                    
+                    <div className="text-amber-400 font-bold border-b border-white/10 pb-1.5 mb-2 flex justify-between items-center tracking-wider">
+                      <span className="flex items-center gap-1.5">
+                        <Icons.CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        SYSTEM DIAGNOSTIC CONSOLE
+                      </span>
+                      <span className="text-[8px] opacity-75 px-1.5 py-0.5 bg-amber-500/10 rounded border border-amber-500/25 animate-pulse">LIVE FEED</span>
+                    </div>
+                    {diagnosticLogs.map((log, index) => {
+                      const isError = log.includes('[Error]');
+                      const isSuccess = log.includes('[Success]');
+                      const isWarning = log.includes('[Warning]');
+                      const colorClass = isError 
+                        ? 'text-red-400' 
+                        : isSuccess 
+                          ? 'text-emerald-400 font-bold' 
+                          : isWarning 
+                            ? 'text-amber-400 font-bold' 
+                            : 'text-slate-300';
+                      return (
+                        <motion.div 
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: Math.min(index * 0.04, 0.4) }}
+                          key={index} 
+                          className={`leading-relaxed flex items-start gap-1.5 ${colorClass}`}
+                        >
+                          <span className="text-slate-600 select-none">&gt;</span>
+                          <span>{log}</span>
+                        </motion.div>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
 
           {/* Real-Time IndexedDB Storage Audit */}
           <div className="mt-5 pt-4 border-t border-slate-200 dark:border-white/10 text-left">
