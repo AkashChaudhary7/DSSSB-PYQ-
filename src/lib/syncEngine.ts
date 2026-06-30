@@ -13,7 +13,8 @@ import {
   collection,
   getDocs,
   query,
-  limit
+  limit,
+  getCountFromServer
 } from './firebase';
 import { 
   saveAllAttempts, 
@@ -26,7 +27,6 @@ import {
 } from './indexedDB';
 import { syncQuestionsFromFirestore } from './questionSync';
 import { Question, QuizAttempt, BookmarkedQuestion, WrongQuestion, UserProfile } from '../types';
-import { getCountFromServer } from 'firebase/firestore';
 
 const LAST_SYNC_KEY = 'cs_mcq_questions_last_sync_timestamp';
 
