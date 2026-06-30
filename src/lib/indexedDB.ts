@@ -52,14 +52,43 @@ export async function getQuestionsCached(): Promise<Question[]> {
 export async function saveQuestionsCached(questions: Question[]): Promise<void> {
   if (!questions || questions.length === 0) return;
   try {
+    const existing = await getQuestionsCached();
+    const existingMap = new Map<string, Question>();
+    const subjectCounts: Record<string, number> = {};
+
+    for (const q of existing) {
+      existingMap.set(q.id, q);
+      const subj = q.topic || 'Unknown';
+      subjectCounts[subj] = (subjectCounts[subj] || 0) + 1;
+    }
+
+    const allowedToSave: Question[] = [];
+    for (const q of questions) {
+      const subj = q.topic || 'Unknown';
+      const isAlreadyCached = existingMap.has(q.id);
+
+      if (isAlreadyCached) {
+        // It's an update, doesn't increase the unique count of questions for this subject
+        allowedToSave.push(q);
+      } else {
+        // It's a new question, check if we've reached 500 questions for this subject
+        const currentCount = subjectCounts[subj] || 0;
+        if (currentCount < 500) {
+          allowedToSave.push(q);
+          subjectCounts[subj] = currentCount + 1;
+        }
+      }
+    }
+
+    if (allowedToSave.length === 0) return;
+
     const db = await initDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
 
-      // Use a single transaction to add / put all questions
       let errorOccurred = false;
-      for (const question of questions) {
+      for (const question of allowedToSave) {
         const req = store.put(question);
         req.onerror = () => {
           errorOccurred = true;
