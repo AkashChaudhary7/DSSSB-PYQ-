@@ -33,7 +33,8 @@ import {
   getDocs as fgetDocs,
   updateDoc as fupdateDoc,
   deleteDoc as fdeleteDoc,
-  writeBatch as fwriteBatch
+  writeBatch as fwriteBatch,
+  getCountFromServer as fgetCountFromServer
 } from 'firebase/firestore';
 
 // DB Monitor to track Firestore reads and writes in the current session
@@ -111,6 +112,14 @@ export async function getDocs(q: any) {
   const snap = await fgetDocs(q);
   dbMonitor.incrementReads(snap.size || 1);
   return snap;
+}
+
+export async function getCountFromServer(queryOrColl: any) {
+  if (dbMonitor.isBypassed()) {
+    throw new Error('Firestore Quota Exhausted: Bypassed by Administrator (Simulated offline mode).');
+  }
+  dbMonitor.incrementReads(1);
+  return await fgetCountFromServer(queryOrColl);
 }
 
 function sanitizeFirestoreData(data: any): any {
