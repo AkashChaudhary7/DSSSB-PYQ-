@@ -7,6 +7,8 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { QuizAttempt, UserProfile, Badge, Question } from '../types';
 import { getBookmarks, getExamsConfig } from '../lib/storage';
 import { getQuestionsCached } from '../lib/indexedDB';
+import { runDiagnosticLogs } from '../lib/firebase';
+import { getCloudQuestionCount } from '../lib/syncEngine';
 import * as Icons from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { motion } from 'motion/react';
@@ -59,11 +61,68 @@ export default function Dashboard({
   const [dbStats, setDbStats] = useState<Record<string, Record<string, number>>>({});
   const [dbLoading, setDbLoading] = useState(false);
 
+  const [diagnosticLogs, setDiagnosticLogs] = useState<string[]>([]);
+
   useEffect(() => {
     if (showDiagnostics) {
-      setCloudQuestionCount(questionPool.length);
+      const fetchCloudCount = async () => {
+        try {
+          const count = await getCloudQuestionCount();
+          setCloudQuestionCount(count);
+        } catch (e) {
+          console.error("Background cloud count fetch failed:", e);
+        }
+      };
+      fetchCloudCount();
     }
-  }, [showDiagnostics, questionPool.length]);
+  }, [showDiagnostics]);
+
+  const handleRunLiveDiagnostics = async () => {
+    if (loadingCloudCount) return;
+    setLoadingCloudCount(true);
+    setDiagnosticLogs([]);
+
+    const logs: string[] = [];
+    const addLog = (msg: string) => {
+      logs.push(msg);
+      setDiagnosticLogs([...logs]);
+    };
+
+    addLog(`[${new Date().toLocaleTimeString()}] Starting local database audit...`);
+    addLog(`[Local] Verified IndexedDB Cache has ${questionPool.length} offline-available questions.`);
+
+    addLog(`[${new Date().toLocaleTimeString()}] Contacting Firestore master server...`);
+    try {
+      const cloudCount = await getCloudQuestionCount();
+      setCloudQuestionCount(cloudCount);
+      addLog(`[Cloud] Master database has ${cloudCount} total questions.`);
+      addLog(`[Analysis] Question bank balance: Local Cache (${questionPool.length}) vs Cloud Server (${cloudCount}).`);
+      if (questionPool.length < cloudCount) {
+        addLog(`[Note] Local cache has fewer questions than the cloud server. This is normal as questions are fetched dynamically based on your selected exam path.`);
+      } else {
+        addLog(`[Success] Local cache is fully synchronized with the cloud question count.`);
+      }
+    } catch (err: any) {
+      console.error("Failed to query cloud question count in diagnostics:", err);
+      addLog(`[Error] Failed to connect to Firestore master count: ${err?.message || String(err)}`);
+    }
+
+    if (currentUser) {
+      addLog(`[${new Date().toLocaleTimeString()}] Triggering standard Firebase Security rules verification...`);
+      try {
+        await runDiagnosticLogs(currentUser);
+        addLog(`[Success] Standard permission audits complete for User ID: ${currentUser.uid}`);
+        addLog(`[Success] All core user database reads and writes are validated. Permissions normal.`);
+      } catch (err: any) {
+        addLog(`[Warning] Firebase console diagnostic encountered warning: ${err?.message || String(err)}`);
+      }
+    } else {
+      addLog(`[Info] Standard Firebase user identity diagnostics bypassed (Guest User / Unauthenticated mode).`);
+    }
+
+    addLog(`[${new Date().toLocaleTimeString()}] Diagnostics complete.`);
+    setLoadingCloudCount(false);
+  };
 
   useEffect(() => {
     if (!showDiagnostics) return;
@@ -753,21 +812,23 @@ export default function Dashboard({
               <div className="flex justify-between items-baseline mt-1.5">
                 <div>
                   <span className="text-lg font-black tracking-tight">{questionPool.length}</span>
-                  <span className="text-[9px] uppercase font-black font-mono ml-1 opacity-70">Local</span>
+                  <span className="text-[9px] uppercase font-black font-mono ml-1 opacity-70">Local Cache</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-lg font-black tracking-tight">{questionPool.length}</span>
-                  <span className="text-[9px] uppercase font-black font-mono ml-1 opacity-70">Ready</span>
+                  <span className="text-lg font-black tracking-tight text-emerald-500 dark:text-emerald-400">
+                    {cloudQuestionCount !== null ? cloudQuestionCount : '...'}
+                  </span>
+                  <span className="text-[9px] uppercase font-black font-mono ml-1 opacity-70">Cloud Total</span>
                 </div>
               </div>
               <div className="w-full bg-slate-200 dark:bg-white/10 h-1.5 rounded-full mt-2.5 overflow-hidden">
                 <div 
                   className={`h-full rounded-full transition-all duration-500 ${theme === 'dark' ? 'bg-[#9EFF33]' : 'bg-[#2F69FF]'}`} 
-                  style={{ width: '100%' }} 
+                  style={{ width: `${Math.min(100, cloudQuestionCount ? (questionPool.length / cloudQuestionCount) * 100 : 100)}%` }} 
                 />
               </div>
               <p className="text-[9px] mt-2 opacity-75 leading-relaxed">
-                Full syllabus index loaded with high-speed query support and offline instant lookup.
+                Local cached syllabus vs absolute cloud master size. Differences are normal due to selective path filtering to optimize network data overhead.
               </p>
             </div>
 
@@ -835,6 +896,55 @@ export default function Dashboard({
                 </>
               )}
             </button>
+          </div>
+
+          {/* Firestore & Cloud Diagnostics Block */}
+          <div className={`p-3.5 rounded-xl border text-left ${theme === 'dark' ? 'bg-slate-950/40 border-white/5' : 'bg-slate-100/60 border-slate-200'} flex flex-col gap-3 mt-4`}>
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 w-full">
+              <div className="text-left">
+                <h4 className="text-xs font-bold flex items-center gap-1 text-slate-800 dark:text-slate-100">
+                  <Icons.Activity className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                  Run Live Firebase & Cloud Diagnostics
+                </h4>
+                <p className="text-[10px] mt-0.5 leading-relaxed text-slate-500 dark:text-slate-400">
+                  Performs a live audit querying the Firestore collections and runs <code className="bg-black/10 dark:bg-white/5 px-1 py-0.5 rounded font-mono">runDiagnosticLogs()</code> to verify Firebase Rules permissions and cloud vs local counts.
+                </p>
+              </div>
+              <button
+                onClick={handleRunLiveDiagnostics}
+                disabled={loadingCloudCount}
+                className={`px-4 py-2.5 disabled:opacity-50 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-xl cursor-pointer shadow-md flex items-center gap-1.5 font-mono shrink-0 border-0 ${
+                  theme === 'dark' ? 'bg-indigo-500 hover:bg-indigo-600 text-white' : 'bg-[#2F69FF] hover:bg-[#1e40af] text-white'
+                }`}
+              >
+                {loadingCloudCount ? (
+                  <>
+                    <Icons.Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Running Diagnostics...
+                  </>
+                ) : (
+                  <>
+                    <Icons.Play className="w-3 h-3" />
+                    Run Diagnostics
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Diagnostic Results Console */}
+            {diagnosticLogs.length > 0 && (
+              <div className="bg-black/90 text-[10px] font-mono p-3 rounded-lg border border-white/10 max-h-48 overflow-y-auto space-y-1 text-slate-300">
+                <div className="text-amber-400 font-bold border-b border-white/10 pb-1 mb-1.5 flex justify-between items-center">
+                  <span>SYSTEM DIAGNOSTIC RESULTS</span>
+                  <span className="text-[8px] opacity-75">LIVE FEED</span>
+                </div>
+                {diagnosticLogs.map((log, index) => (
+                  <div key={index} className="leading-relaxed">
+                    {log}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Real-Time IndexedDB Storage Audit */}
