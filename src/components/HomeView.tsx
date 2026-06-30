@@ -360,7 +360,7 @@ export default function HomeView({
               Hello, {userProfile?.displayName || 'Scholar'} <span className="animate-pulse">👋</span>
             </h2>
             <div className="flex items-center gap-2.5 mt-1 flex-nowrap whitespace-nowrap overflow-x-auto no-scrollbar">
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0 relative group/goal">
                 <span className={`text-[9px] font-mono font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-blue-200'}`}>Goal:</span>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -371,6 +371,16 @@ export default function HomeView({
                   <span>{currentExamConfig?.name || 'Loading goal...'}</span>
                   <Icons.ChevronDown className="w-3 h-3 text-amber-300" />
                 </motion.button>
+
+                {/* Info Tooltip Icon */}
+                <div className="relative inline-block ml-1 group/tooltip">
+                  <Icons.Info className="w-3.5 h-3.5 text-blue-250 dark:text-slate-400 cursor-help hover:text-amber-300 dark:hover:text-amber-300 transition-colors shrink-0" />
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 bg-slate-950 border border-white/10 text-white rounded-lg p-2.5 text-[10px] leading-relaxed font-sans font-medium opacity-0 pointer-events-none group-hover/tooltip:opacity-100 transition-opacity duration-200 z-[100] shadow-xl text-left whitespace-normal">
+                    <span className="font-extrabold text-amber-300 block mb-1">Batch Question Loading</span>
+                    We fetch syllabus-aligned batches from Cloud database bundles to keep offline caching extremely fast & optimize storage. Tap 'Pull Qs' to sync the latest questions.
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-slate-950" />
+                  </div>
+                </div>
               </div>
 
               {daysLeft !== null && (
@@ -408,8 +418,11 @@ export default function HomeView({
             <span className={`text-[8px] block font-bold tracking-widest uppercase font-mono transition-colors ${theme === 'dark' ? 'text-slate-400 group-hover/stat:text-slate-300' : 'text-blue-200 group-hover/stat:text-blue-100'}`}>Practiced</span>
             <span className="text-[13px] font-black font-mono tracking-tight mt-1 block">{totalPracticedQuestions} <span className="text-[9px] opacity-70 font-sans">Qs</span></span>
           </div>
-          <div className="border-l border-white/10 group/stat cursor-default">
-            <span className={`text-[8px] block font-bold tracking-widest uppercase font-mono transition-colors ${theme === 'dark' ? 'text-slate-400 group-hover/stat:text-slate-300' : 'text-blue-200 group-hover/stat:text-blue-100'}`}>Total Qs</span>
+          <div className="border-l border-white/10 group/stat cursor-default relative">
+            <span className={`text-[8px] flex items-center justify-center gap-0.5 font-bold tracking-widest uppercase font-mono transition-colors ${theme === 'dark' ? 'text-slate-400 group-hover/stat:text-slate-300' : 'text-blue-200 group-hover/stat:text-blue-100'}`}>
+              Total Qs
+              <Icons.Info className="w-2.5 h-2.5 cursor-help text-slate-350 hover:text-amber-300 dark:text-slate-400 dark:hover:text-amber-300 transition-colors shrink-0" title="Offline-cached questions present in IndexedDB on this device. Fetching the latest syllabus batch is triggered via Pull Qs." />
+            </span>
             <span className="text-[13px] font-black font-mono tracking-tight mt-1 block">{totalExamQuestionsCount}</span>
           </div>
           <div className="border-l border-white/10 group/stat cursor-default">
