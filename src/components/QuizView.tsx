@@ -184,17 +184,15 @@ export default function QuizView({
       const shuffledUnique = shuffleArray(uniqueGroup);
       const shuffledExhausted = shuffleArray(exhaustedGroup);
 
-      // Prioritize Wrong questions, then unattempted Unique questions, then exhausted correct questions as fallback
-      let orderedCandidates = [...shuffledWrong, ...shuffledUnique];
+      // Prioritize unattempted Unique questions first. Only when they are exhausted, fallback to wrong questions then correct ones.
+      let orderedCandidates = [...shuffledUnique];
+      const targetCount = customCount && customCount > 0 ? customCount : filtered.length;
       
-      // If we don't have enough unique or wrong questions, append exhausted correct ones to fill the session
-      if (orderedCandidates.length === 0) {
-        orderedCandidates = shuffledExhausted;
-      } else {
-        const targetCount = customCount && customCount > 0 ? customCount : filtered.length;
-        if (orderedCandidates.length < targetCount) {
-          orderedCandidates = [...orderedCandidates, ...shuffledExhausted];
-        }
+      if (orderedCandidates.length < targetCount) {
+        orderedCandidates = [...orderedCandidates, ...shuffledWrong];
+      }
+      if (orderedCandidates.length < targetCount) {
+        orderedCandidates = [...orderedCandidates, ...shuffledExhausted];
       }
 
       const itemsToPick = customCount && customCount > 0 ? Math.min(customCount, orderedCandidates.length) : orderedCandidates.length;
@@ -508,24 +506,38 @@ export default function QuizView({
                   }`}
                 >
                   {/* Topic / Difficulty Tags */}
-                  <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
-                    <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400">
-                      Q{index + 1}
-                    </span>
-                    {originalQ?.topic && (
-                      <span className="text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                        {originalQ.topic}
+                  <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400">
+                        Q{index + 1}
                       </span>
-                    )}
-                    <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${
-                      isCorrect 
-                        ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' 
-                        : qAttemptItem.selectedOptionIndex === -1
-                        ? 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400'
-                        : 'bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400'
-                    }`}>
-                      {isCorrect ? 'Correct' : qAttemptItem.selectedOptionIndex === -1 ? 'Skipped' : 'Incorrect'}
-                    </span>
+                      {originalQ?.topic && (
+                        <span className="text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                          {originalQ.topic}
+                        </span>
+                      )}
+                      <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${
+                        isCorrect 
+                          ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' 
+                          : qAttemptItem.selectedOptionIndex === -1
+                          ? 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400'
+                          : 'bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400'
+                      }`}>
+                        {isCorrect ? 'Correct' : qAttemptItem.selectedOptionIndex === -1 ? 'Skipped' : 'Incorrect'}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => handleBookmarkToggle(qAttemptItem.questionId)}
+                      className={`p-1.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+                        bookmarks.includes(qAttemptItem.questionId)
+                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
+                          : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                      }`}
+                      title="Toggle Bookmark"
+                    >
+                      <Icons.Bookmark className={`w-3.5 h-3.5 ${bookmarks.includes(qAttemptItem.questionId) ? 'fill-current' : ''}`} />
+                    </button>
                   </div>
 
                   {/* Question Text */}
