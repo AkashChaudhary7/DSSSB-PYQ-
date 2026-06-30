@@ -329,6 +329,25 @@ export async function syncQuestionsFromFirestore(
 
   const lastSync = localStorage.getItem(LAST_SYNC_KEY) || '1970-01-01T00:00:00.000Z';
   
+  // Get already attempted question IDs to exclude from sync
+  const attemptedIds = new Set<string>();
+  try {
+    const attemptsStr = localStorage.getItem('cs_mcq_quiz_attempts') || '[]';
+    const attempts = JSON.parse(attemptsStr);
+    attempts.forEach((a: any) => {
+      if (a.questions && Array.isArray(a.questions)) {
+        a.questions.forEach((q: any) => {
+          if (q.questionId) {
+            attemptedIds.add(q.questionId);
+          }
+        });
+      }
+    });
+    console.log(`[Sync] Loaded ${attemptedIds.size} attempted question IDs to exclude from this sync session.`);
+  } catch (err) {
+    console.warn('[Sync] Failed to read attempts for exclusion:', err);
+  }
+
   try {
     const allSyncedQuestions: Question[] = [];
     let currentLastSync = lastSync;
@@ -441,6 +460,10 @@ export async function syncQuestionsFromFirestore(
             }
 
             for (const qObj of data.questions) {
+              if (qObj.id && attemptedIds.has(qObj.id)) {
+                // Skip previously practiced/attempted question
+                continue;
+              }
               batchQuestions.push({
                 ...qObj,
                 source: qObj.source || 'Firestore Sync'
