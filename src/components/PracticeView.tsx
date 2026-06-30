@@ -22,6 +22,7 @@ interface PracticeViewProps {
     customCount?: number
   ) => void;
   questionPool: Question[];
+  onForceCloudPull?: () => Promise<void>;
 }
 
 export default function PracticeView({
@@ -29,7 +30,8 @@ export default function PracticeView({
   onChangeExam,
   theme = 'dark',
   onSelectSubtopic,
-  questionPool
+  questionPool,
+  onForceCloudPull
 }: PracticeViewProps) {
   const [examsConfig, setExamsConfig] = useState<ExamConfig[]>([]);
   const [selectedExams, setSelectedExams] = useState<string[]>([]);
@@ -84,6 +86,43 @@ export default function PracticeView({
     if (!matchedSubject) return [];
     return matchedSubject.topics.flatMap(t => t.subtopics);
   }, [selectedSubject, currentExamConfig]);
+
+  // Check if all cached questions for this exam are exhausted/practiced
+  const practiceStatus = useMemo(() => {
+    if (!currentExamConfig) return { total: 0, practiced: 0, exhausted: false };
+    
+    const activeExamId = currentExamConfig.id;
+    const examQuestions = questionPool.filter(q => {
+      if (!q.exam) {
+        return currentExamConfig.subjects.some(subj => subj.name.toLowerCase() === q.topic.toLowerCase());
+      }
+      return q.exam === activeExamId;
+    });
+
+    let attemptedIds = new Set<string>();
+    try {
+      const attemptsStr = localStorage.getItem('cs_mcq_quiz_attempts') || '[]';
+      const attempts = JSON.parse(attemptsStr);
+      const examAttempts = attempts.filter((a: any) => a.examId === activeExamId);
+      examAttempts.forEach((a: any) => {
+        if (a.questions && Array.isArray(a.questions)) {
+          a.questions.forEach((q: any) => {
+            if (q.questionId) {
+              attemptedIds.add(q.questionId);
+            }
+          });
+        }
+      });
+    } catch (e) {
+      console.error('Failed to parse quiz attempts in PracticeView:', e);
+    }
+
+    const total = examQuestions.length;
+    const practiced = examQuestions.filter(q => attemptedIds.has(q.id)).length;
+    const exhausted = total > 0 && practiced >= total;
+
+    return { total, practiced, exhausted };
+  }, [questionPool, currentExamConfig]);
 
   // Reset subtopics on subject change
   const handleSubjectChange = (subj: string) => {
@@ -455,6 +494,44 @@ export default function PracticeView({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Practice Exhaustion Reset Card */}
+      {practiceStatus.exhausted && (
+        <div className={`p-4 rounded-2xl border text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+          theme === 'dark' 
+            ? 'bg-amber-500/5 border-amber-500/20 text-amber-200' 
+            : 'bg-amber-55/40 border-amber-200 text-amber-800'
+        }`}>
+          <div className="space-y-1">
+            <h4 className="text-xs font-black uppercase tracking-wide flex items-center gap-1.5">
+              <Icons.Award className="w-4.5 h-4.5 text-amber-500 animate-bounce" />
+              All Local Cached Questions Practiced!
+            </h4>
+            <p className="text-[10px] opacity-90 leading-normal max-w-md">
+              Congratulations! You've attempted all {practiceStatus.total} cached questions for <strong>{currentExamConfig.name}</strong>. Toggle the reset below to purge local cache and sync fresh unattempted questions from the cloud.
+            </p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={async () => {
+              if (confirm("Resetting will purge your local cached questions and sync completely fresh, unique unattempted questions from the cloud. Your attempts score history remains completely safe! Proceed?")) {
+                if (onForceCloudPull) {
+                  await onForceCloudPull();
+                }
+              }
+            }}
+            className={`px-3 py-2 text-[10.5px] font-black rounded-xl uppercase tracking-wider cursor-pointer shadow-md flex items-center gap-1.5 transition-all shrink-0 select-none border ${
+              theme === 'dark'
+                ? 'bg-amber-500 hover:bg-amber-400 text-black border-amber-600/20'
+                : 'bg-amber-600 hover:bg-amber-500 text-white border-amber-700/20'
+            }`}
+          >
+            <Icons.RefreshCw className="w-3.5 h-3.5" />
+            <span>Reset & Sync Fresh</span>
+          </motion.button>
+        </div>
+      )}
 
       {/* Main launch active simulator button */}
       <motion.button
