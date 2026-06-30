@@ -11,7 +11,8 @@ import {
   writeBatch, 
   doc,
   getDoc,
-  setDoc
+  setDoc,
+  getCountFromServer
 } from './firebase';
 import { Question, ExamConfig } from '../types';
 import { getQuestionsCached, saveQuestionsCached } from './indexedDB';
@@ -315,9 +316,16 @@ export async function uploadQuestionsInChunks(
  * Synchronizes new questions from Firestore in incremental bundles since last sync.
  * Saves Firestore daily read limits by only requesting newly added/updated records.
  */
-export async function syncQuestionsFromFirestore(selectedExams?: string[]): Promise<Question[]> {
+export async function syncQuestionsFromFirestore(
+  selectedExams?: string[],
+  onProgress?: (progress: number, details: string) => void
+): Promise<Question[]> {
+  onProgress?.(2, 'Initializing cloud synchronization...');
+  
   // Sync the exam configurations first so any newly added subjects are pulled instantly
+  onProgress?.(5, 'Fetching syllabus blueprint configurations...');
   await syncExamsConfigFromFirestore();
+  onProgress?.(10, 'Establishing secure database handshake...');
 
   const lastSync = localStorage.getItem(LAST_SYNC_KEY) || '1970-01-01T00:00:00.000Z';
   
@@ -325,12 +333,33 @@ export async function syncQuestionsFromFirestore(selectedExams?: string[]): Prom
     const allSyncedQuestions: Question[] = [];
     let currentLastSync = lastSync;
 
+    // Fetch total count of bundles to synchronize
+    let totalBundles = 0;
+    try {
+      let countQuery;
+      if (lastSync === '1970-01-01T00:00:00.000Z') {
+        countQuery = query(collection(db, BUNDLES_COLLECTION));
+      } else {
+        countQuery = query(
+          collection(db, BUNDLES_COLLECTION),
+          where('updatedAt', '>', lastSync)
+        );
+      }
+      const countSnap = await getCountFromServer(countQuery);
+      totalBundles = countSnap.data().count;
+      console.log(`[Sync] Total bundles to download: ${totalBundles}`);
+      onProgress?.(12, `Discovered ${totalBundles} updates to apply...`);
+    } catch (countErr) {
+      console.warn('[Sync] Failed to fetch total bundle count, estimating:', countErr);
+    }
+
     // Process with limit-based cursor pagination based solely on updatedAt.
     // Fetch bundles (each up to 1000 questions) per request to avoid memory strain
     const BATCH_LIMIT = 20;
     let lastVisible: any = null;
     let hasMore = true;
     let fetchAttempts = 0;
+    let processedBundles = 0;
 
     while (hasMore && fetchAttempts < 100) {
       fetchAttempts++;
@@ -390,6 +419,27 @@ export async function syncQuestionsFromFirestore(selectedExams?: string[]): Prom
         if (data.examId) {
           if (data.questions && Array.isArray(data.questions)) {
             console.log(`[Sync Debug] Match found! Adding ${data.questions.length} questions for exam ${data.examId}`);
+            
+            // Record downloaded batch in recent batches log
+            try {
+              const rawRecent = localStorage.getItem('cs_mcq_recent_batches');
+              const recent = rawRecent ? JSON.parse(rawRecent) : [];
+              const lastPart = docSnap.id.split('_').pop() || '';
+              const indexNum = parseInt(lastPart, 10);
+              const batchNum = isNaN(indexNum) ? lastPart : `#${indexNum + 1}`;
+              const newBatch = {
+                id: docSnap.id,
+                name: `${data.examId.toUpperCase().replace(/_/g, ' ')} Batch ${batchNum}`,
+                timestamp: data.updatedAt || new Date().toISOString(),
+                count: data.questions.length
+              };
+              const filtered = recent.filter((b: any) => b.id !== newBatch.id);
+              filtered.unshift(newBatch);
+              localStorage.setItem('cs_mcq_recent_batches', JSON.stringify(filtered.slice(0, 10)));
+            } catch (err) {
+              console.warn('[Sync] Failed to log recent batch:', err);
+            }
+
             for (const qObj of data.questions) {
               batchQuestions.push({
                 ...qObj,
@@ -401,6 +451,16 @@ export async function syncQuestionsFromFirestore(selectedExams?: string[]): Prom
           }
         }
       });
+
+      processedBundles += snapshot.docs.length;
+      const progressPercent = totalBundles > 0 
+        ? Math.min(15 + Math.round((processedBundles / totalBundles) * 80), 98) 
+        : Math.min(15 + fetchAttempts * 10, 95);
+
+      onProgress?.(
+        progressPercent,
+        `Processed ${processedBundles}/${totalBundles || '?'} packs. Loading ${batchQuestions.length} questions...`
+      );
 
       if (batchQuestions.length > 0) {
         // Store in local IndexedDB cache incrementally
@@ -419,14 +479,18 @@ export async function syncQuestionsFromFirestore(selectedExams?: string[]): Prom
       }
     }
 
+    onProgress?.(99, 'Optimizing database indices & updating local cache...');
+
     if (allSyncedQuestions.length > 0) {
       console.log(`Synchronized ${allSyncedQuestions.length} questions from Firestore into IndexedDB cache (from bundles).`);
     }
 
     localStorage.setItem(LAST_SYNC_KEY, currentLastSync);
+    onProgress?.(100, `Done! Sync complete. Imported ${allSyncedQuestions.length} questions.`);
     return allSyncedQuestions;
   } catch (error) {
     console.warn('Incremental bundle sync warning, continuing offline: ', error);
+    onProgress?.(100, 'Handshake timed out. Loaded local questions successfully.');
     return [];
   }
 }
