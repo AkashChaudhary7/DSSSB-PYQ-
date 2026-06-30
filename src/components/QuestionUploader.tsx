@@ -1271,6 +1271,229 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
     }));
   };
 
+  // Subject, Topic, and Subtopic CRUD operations
+  const [editingSubjectName, setEditingSubjectName] = useState<string | null>(null);
+  const [newSubjectRenameVal, setNewSubjectRenameVal] = useState<string>('');
+  const [editingTopicPath, setEditingTopicPath] = useState<{ subjectName: string; topicName: string } | null>(null);
+  const [newTopicRenameVal, setNewTopicRenameVal] = useState<string>('');
+  const [editingSubtopicPath, setEditingSubtopicPath] = useState<{ subjectName: string; topicName: string; subtopicName: string } | null>(null);
+  const [newSubtopicRenameVal, setNewSubtopicRenameVal] = useState<string>('');
+  const [newSubtopicInputVal, setNewSubtopicInputVal] = useState<Record<string, string>>({});
+
+  const handleDeleteSubject = (subjName: string) => {
+    if (!targetExamConfig) return;
+    const updated = examsConfig.map(ex => {
+      if (ex.id === editingExamId) {
+        const updatedSubjects = ex.subjects.filter(s => s.name !== subjName);
+        const updatedAllotments = { ...ex.rules.subjectAllotments };
+        delete updatedAllotments[subjName];
+        return {
+          ...ex,
+          subjects: updatedSubjects,
+          rules: {
+            ...ex.rules,
+            subjectAllotments: updatedAllotments
+          }
+        };
+      }
+      return ex;
+    });
+    saveExamsConfig(updated);
+    setExamsConfig(updated);
+    saveExamsConfigToFirestore(updated);
+    setSuccessCount(prev => prev + 1);
+  };
+
+  const handleEditSubject = (oldName: string) => {
+    if (!newSubjectRenameVal.trim() || !targetExamConfig) return;
+    const newName = newSubjectRenameVal.trim();
+    const updated = examsConfig.map(ex => {
+      if (ex.id === editingExamId) {
+        const updatedSubjects = ex.subjects.map(s => {
+          if (s.name === oldName) {
+            return { ...s, name: newName };
+          }
+          return s;
+        });
+        const updatedAllotments = { ...ex.rules.subjectAllotments };
+        if (updatedAllotments[oldName] !== undefined) {
+          updatedAllotments[newName] = updatedAllotments[oldName];
+          delete updatedAllotments[oldName];
+        }
+        return {
+          ...ex,
+          subjects: updatedSubjects,
+          rules: {
+            ...ex.rules,
+            subjectAllotments: updatedAllotments
+          }
+        };
+      }
+      return ex;
+    });
+    saveExamsConfig(updated);
+    setExamsConfig(updated);
+    saveExamsConfigToFirestore(updated);
+    setEditingSubjectName(null);
+    setNewSubjectRenameVal('');
+    setSuccessCount(prev => prev + 1);
+  };
+
+  const handleDeleteTopic = (subjName: string, topicName: string) => {
+    if (!targetExamConfig) return;
+    const updated = examsConfig.map(ex => {
+      if (ex.id === editingExamId) {
+        const updatedSubjects = ex.subjects.map(s => {
+          if (s.name === subjName) {
+            return {
+              ...s,
+              topics: s.topics.filter(t => t.name !== topicName)
+            };
+          }
+          return s;
+        });
+        return { ...ex, subjects: updatedSubjects };
+      }
+      return ex;
+    });
+    saveExamsConfig(updated);
+    setExamsConfig(updated);
+    saveExamsConfigToFirestore(updated);
+    setSuccessCount(prev => prev + 1);
+  };
+
+  const handleEditTopic = (subjName: string, oldTopicName: string) => {
+    if (!newTopicRenameVal.trim() || !targetExamConfig) return;
+    const newName = newTopicRenameVal.trim();
+    const updated = examsConfig.map(ex => {
+      if (ex.id === editingExamId) {
+        const updatedSubjects = ex.subjects.map(s => {
+          if (s.name === subjName) {
+            return {
+              ...s,
+              topics: s.topics.map(t => {
+                if (t.name === oldTopicName) {
+                  return { ...t, name: newName };
+                }
+                return t;
+              })
+            };
+          }
+          return s;
+        });
+        return { ...ex, subjects: updatedSubjects };
+      }
+      return ex;
+    });
+    saveExamsConfig(updated);
+    setExamsConfig(updated);
+    saveExamsConfigToFirestore(updated);
+    setEditingTopicPath(null);
+    setNewTopicRenameVal('');
+    setSuccessCount(prev => prev + 1);
+  };
+
+  const handleDeleteSubtopic = (subjName: string, topicName: string, subName: string) => {
+    if (!targetExamConfig) return;
+    const updated = examsConfig.map(ex => {
+      if (ex.id === editingExamId) {
+        const updatedSubjects = ex.subjects.map(s => {
+          if (s.name === subjName) {
+            return {
+              ...s,
+              topics: s.topics.map(t => {
+                if (t.name === topicName) {
+                  return {
+                    ...t,
+                    subtopics: t.subtopics.filter(sub => sub !== subName)
+                  };
+                }
+                return t;
+              })
+            };
+          }
+          return s;
+        });
+        return { ...ex, subjects: updatedSubjects };
+      }
+      return ex;
+    });
+    saveExamsConfig(updated);
+    setExamsConfig(updated);
+    saveExamsConfigToFirestore(updated);
+    setSuccessCount(prev => prev + 1);
+  };
+
+  const handleEditSubtopic = (subjName: string, topicName: string, oldSubName: string) => {
+    if (!newSubtopicRenameVal.trim() || !targetExamConfig) return;
+    const newName = newSubtopicRenameVal.trim();
+    const updated = examsConfig.map(ex => {
+      if (ex.id === editingExamId) {
+        const updatedSubjects = ex.subjects.map(s => {
+          if (s.name === subjName) {
+            return {
+              ...s,
+              topics: s.topics.map(t => {
+                if (t.name === topicName) {
+                  return {
+                    ...t,
+                    subtopics: t.subtopics.map(sub => sub === oldSubName ? newName : sub)
+                  };
+                }
+                return t;
+              })
+            };
+          }
+          return s;
+        });
+        return { ...ex, subjects: updatedSubjects };
+      }
+      return ex;
+    });
+    saveExamsConfig(updated);
+    setExamsConfig(updated);
+    saveExamsConfigToFirestore(updated);
+    setEditingSubtopicPath(null);
+    setNewSubtopicRenameVal('');
+    setSuccessCount(prev => prev + 1);
+  };
+
+  const handleAddSubtopicInline = (subjName: string, topicName: string) => {
+    const key = `${subjName}-${topicName}`;
+    const val = newSubtopicInputVal[key]?.trim();
+    if (!val || !targetExamConfig) return;
+
+    const updated = examsConfig.map(ex => {
+      if (ex.id === editingExamId) {
+        const updatedSubjects = ex.subjects.map(s => {
+          if (s.name === subjName) {
+            return {
+              ...s,
+              topics: s.topics.map(t => {
+                if (t.name === topicName) {
+                  if (t.subtopics.includes(val)) return t;
+                  return {
+                    ...t,
+                    subtopics: [...t.subtopics, val]
+                  };
+                }
+                return t;
+              })
+            };
+          }
+          return s;
+        });
+        return { ...ex, subjects: updatedSubjects };
+      }
+      return ex;
+    });
+    saveExamsConfig(updated);
+    setExamsConfig(updated);
+    saveExamsConfigToFirestore(updated);
+    setNewSubtopicInputVal(prev => ({ ...prev, [key]: '' }));
+    setSuccessCount(prev => prev + 1);
+  };
+
   return (
     <div className="space-y-4 text-slate-800 dark:text-slate-100 text-left">
       
@@ -2090,6 +2313,267 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
             )}
 
           </div>
+
+          {/* Section 4: INTERACTIVE CURRICULUM TREE & DIRECT SYLLABUS EDITOR */}
+          {targetExamConfig && targetExamConfig.subjects.length > 0 && (
+            <div className="bg-slate-50 dark:bg-white/[0.015] border border-slate-200 dark:border-white/5 rounded-2xl p-4 space-y-4">
+              <h3 className="text-xs font-black uppercase text-slate-550 dark:text-slate-400 tracking-wider font-mono flex items-center gap-1.5">
+                <Icons.Layers className="w-4 h-4 text-emerald-500" />
+                4. INTERACTIVE CURRICULUM TREE & DIRECT SYLLABUS EDITOR
+              </h3>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-normal font-medium -mt-1">
+                Manage your syllabus directly! Double-click or use the action buttons to edit, rename, delete, or append subjects, chapters, and sub-units. Changes are instantly pushed to Firestore.
+              </p>
+
+              <div className="space-y-4">
+                {targetExamConfig.subjects.map((subj) => {
+                  const isEditingSubject = editingSubjectName === subj.name;
+                  
+                  return (
+                    <div 
+                      key={subj.name} 
+                      className="p-4 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl space-y-3"
+                    >
+                      {/* Subject Row */}
+                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2.5">
+                        {isEditingSubject ? (
+                          <div className="flex items-center gap-1.5 flex-1 max-w-xs sm:max-w-md">
+                            <input
+                              type="text"
+                              value={newSubjectRenameVal}
+                              onChange={(e) => setNewSubjectRenameVal(e.target.value)}
+                              className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-250 dark:border-white/10 rounded px-2 py-1 text-xs outline-none focus:border-indigo-500 font-bold text-slate-800 dark:text-slate-100"
+                              placeholder="Rename subject..."
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => handleEditSubject(subj.name)}
+                              className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded text-[10px] uppercase tracking-wider cursor-pointer"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingSubjectName(null);
+                                setNewSubjectRenameVal('');
+                              }}
+                              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded text-[10px] cursor-pointer text-slate-850 dark:text-slate-300"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Icons.BookOpen className="w-4 h-4 text-indigo-500" />
+                            <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                              {subj.name}
+                            </span>
+                            <span className="text-[8px] font-mono text-slate-400 dark:text-slate-500 px-1.5 py-0.5 rounded bg-slate-50 dark:bg-white/5 font-bold">
+                              {subj.topics.length} Chapters
+                            </span>
+                          </div>
+                        )}
+
+                        {!isEditingSubject && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => {
+                                setEditingSubjectName(subj.name);
+                                setNewSubjectRenameVal(subj.name);
+                              }}
+                              title="Rename Subject"
+                              className="p-1 rounded hover:bg-slate-100 dark:hover:bg-white/5 text-slate-450 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                            >
+                              <Icons.Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to delete subject "${subj.name}"? This will delete all its chapters, subtopics, and references!`)) {
+                                  handleDeleteSubject(subj.name);
+                                }
+                              }}
+                              title="Delete Subject"
+                              className="p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10 text-rose-500 cursor-pointer"
+                            >
+                              <Icons.Trash className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Chapters / Topics */}
+                      {subj.topics.length === 0 ? (
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 italic py-1">No chapters defined. Deploy chapters above.</p>
+                      ) : (
+                        <div className="pl-2.5 border-l-2 border-slate-100 dark:border-white/5 space-y-4">
+                          {subj.topics.map((topic) => {
+                            const isEditingTopic = editingTopicPath?.subjectName === subj.name && editingTopicPath?.topicName === topic.name;
+                            const inlineSubtopicKey = `${subj.name}-${topic.name}`;
+                            const subtopicInputValue = newSubtopicInputVal[inlineSubtopicKey] || '';
+
+                            return (
+                              <div key={topic.name} className="space-y-2">
+                                {/* Topic Header */}
+                                <div className="flex items-center justify-between group">
+                                  {isEditingTopic ? (
+                                    <div className="flex items-center gap-1.5 flex-1 max-w-xs sm:max-w-md">
+                                      <input
+                                        type="text"
+                                        value={newTopicRenameVal}
+                                        onChange={(e) => setNewTopicRenameVal(e.target.value)}
+                                        className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-250 dark:border-white/10 rounded px-2 py-0.5 text-[11px] outline-none focus:border-indigo-500 font-bold text-slate-850 dark:text-slate-100"
+                                        placeholder="Rename chapter..."
+                                        autoFocus
+                                      />
+                                      <button
+                                        onClick={() => handleEditTopic(subj.name, topic.name)}
+                                        className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded text-[9px] uppercase tracking-wider cursor-pointer"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setEditingTopicPath(null);
+                                          setNewTopicRenameVal('');
+                                        }}
+                                        className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded text-[9px] cursor-pointer text-slate-850 dark:text-slate-300"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5">
+                                      <Icons.FolderOpen className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                                      <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                                        {topic.name}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {!isEditingTopic && (
+                                    <div className="flex items-center gap-0.5 opacity-40 group-hover:opacity-100 transition-opacity">
+                                      <button
+                                        onClick={() => {
+                                          setEditingTopicPath({ subjectName: subj.name, topicName: topic.name });
+                                          setNewTopicRenameVal(topic.name);
+                                        }}
+                                        title="Rename Chapter"
+                                        className="p-1 rounded hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                                      >
+                                        <Icons.Edit className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          if (confirm(`Are you sure you want to delete chapter "${topic.name}"?`)) {
+                                            handleDeleteTopic(subj.name, topic.name);
+                                          }
+                                        }}
+                                        title="Delete Chapter"
+                                        className="p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10 text-rose-500 cursor-pointer"
+                                      >
+                                        <Icons.Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Subtopics Grid/Pills */}
+                                <div className="pl-5 flex flex-wrap items-center gap-1.5">
+                                  {topic.subtopics.map((subtopic) => {
+                                    const isEditingSub = editingSubtopicPath?.subjectName === subj.name && 
+                                      editingSubtopicPath?.topicName === topic.name && 
+                                      editingSubtopicPath?.subtopicName === subtopic;
+                                    
+                                    if (isEditingSub) {
+                                      return (
+                                        <div key={subtopic} className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 border border-indigo-500/30 rounded px-1.5 py-0.5 text-[10px]">
+                                          <input
+                                            type="text"
+                                            value={newSubtopicRenameVal}
+                                            onChange={(e) => setNewSubtopicRenameVal(e.target.value)}
+                                            className="bg-transparent text-[10px] outline-none font-bold w-24 text-slate-850 dark:text-slate-100"
+                                            autoFocus
+                                          />
+                                          <button
+                                            onClick={() => handleEditSubtopic(subj.name, topic.name, subtopic)}
+                                            className="text-[10px] text-emerald-500 font-bold hover:text-emerald-400 cursor-pointer"
+                                          >
+                                            ✓
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              setEditingSubtopicPath(null);
+                                              setNewSubtopicRenameVal('');
+                                            }}
+                                            className="text-[10px] text-slate-450 font-bold hover:text-slate-300 cursor-pointer"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                      );
+                                    }
+
+                                    return (
+                                      <div 
+                                        key={subtopic}
+                                        className="group/sub inline-flex items-center gap-1 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-full px-2.5 py-0.5 text-[10px] text-slate-650 dark:text-slate-350 hover:border-slate-300 dark:hover:border-white/10 transition-colors"
+                                      >
+                                        <span 
+                                          onDoubleClick={() => {
+                                            setEditingSubtopicPath({ subjectName: subj.name, topicName: topic.name, subtopicName: subtopic });
+                                            setNewSubtopicRenameVal(subtopic);
+                                          }}
+                                          title="Double-click to Rename" 
+                                          className="cursor-pointer select-none font-medium"
+                                        >
+                                          {subtopic}
+                                        </span>
+                                        <button
+                                          onClick={() => handleDeleteSubtopic(subj.name, topic.name, subtopic)}
+                                          className="w-3.5 h-3.5 rounded-full flex items-center justify-center bg-transparent group-hover/sub:bg-rose-500/10 text-slate-400 group-hover/sub:text-rose-500 cursor-pointer transition-colors text-[8px]"
+                                          title="Remove Sub-Unit"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+
+                                  {/* Add Single Subtopic Inline Input */}
+                                  <div className="inline-flex items-center gap-1.5 bg-indigo-500/[0.02] border border-indigo-500/10 rounded-full px-2 py-0.5 text-[10px]">
+                                    <input
+                                      type="text"
+                                      value={subtopicInputValue}
+                                      onChange={(e) => setNewSubtopicInputVal(prev => ({ ...prev, [inlineSubtopicKey]: e.target.value }))}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          handleAddSubtopicInline(subj.name, topic.name);
+                                        }
+                                      }}
+                                      placeholder="+ Add sub-unit..."
+                                      className="bg-transparent border-none outline-none text-[10px] w-20 text-slate-600 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500 font-bold"
+                                    />
+                                    {subtopicInputValue.trim() !== '' && (
+                                      <button
+                                        onClick={() => handleAddSubtopicInline(subj.name, topic.name)}
+                                        className="text-[10px] text-indigo-500 hover:text-indigo-400 font-black cursor-pointer"
+                                      >
+                                        +
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
         </div>
       )}
