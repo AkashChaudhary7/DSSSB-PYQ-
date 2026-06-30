@@ -49,30 +49,26 @@ export async function getQuestionsCached(): Promise<Question[]> {
   }
 }
 
-export async function saveQuestionsCached(questions: Question[]): Promise<void> {
+export async function saveQuestionsCached(questions: Question[], enforceSubjectLimit: boolean = false): Promise<void> {
   if (!questions || questions.length === 0) return;
   try {
-    const existing = await getQuestionsCached();
-    const existingMap = new Map<string, Question>();
-    const subjectCounts: Record<string, number> = {};
+    let allowedToSave = questions;
+    if (enforceSubjectLimit) {
+      const existing = await getQuestionsCached();
+      const subjectCounts: Record<string, number> = {};
+      for (const q of existing) {
+        const subj = q.topic || 'Unknown';
+        subjectCounts[subj] = (subjectCounts[subj] || 0) + 1;
+      }
 
-    for (const q of existing) {
-      existingMap.set(q.id, q);
-      const subj = q.topic || 'Unknown';
-      subjectCounts[subj] = (subjectCounts[subj] || 0) + 1;
-    }
-
-    const allowedToSave: Question[] = [];
-    for (const q of questions) {
-      const subj = q.topic || 'Unknown';
-      const isAlreadyCached = existingMap.has(q.id);
-
-      if (isAlreadyCached) {
-        // It's an update, doesn't increase the unique count of questions for this subject
-        allowedToSave.push(q);
-      } else {
-        // Allow saving all questions without arbitrary local limit
-        allowedToSave.push(q);
+      allowedToSave = [];
+      for (const q of questions) {
+        const subj = q.topic || 'Unknown';
+        const currentCount = subjectCounts[subj] || 0;
+        if (currentCount < 500) {
+          allowedToSave.push(q);
+          subjectCounts[subj] = currentCount + 1;
+        }
       }
     }
 
