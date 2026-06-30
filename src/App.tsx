@@ -707,13 +707,19 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen ${theme === 'dark' ? 'dark bg-[#0B0C0E]' : 'bg-gradient-to-br from-[#e0eaf3] via-[#e8f0f7] to-[#eef4fa]'} text-slate-800 dark:text-slate-150 flex items-center justify-center p-0 sm:p-6 lg:p-8 selection:bg-indigo-500/20 transition-colors duration-300`}>
+    <div className={`min-h-screen ${theme === 'dark' ? 'dark bg-[#0B0C0E]' : 'bg-gradient-to-br from-[#e0eaf3] via-[#e8f0f7] to-[#eef4fa]'} text-slate-800 dark:text-slate-150 flex items-center justify-center selection:bg-indigo-500/20 transition-colors duration-300 ${
+      view === 'practice' || view === 'quiz' ? 'p-0' : 'p-0 sm:p-6 lg:p-8'
+    }`}>
       
       {/* 
         High-fidelity smartphone frame layout on wide viewports (desktop-first luxury)
         Spans beautifully on natural screens, respecting both the full-width mobile focus and aesthetic precision.
       */}
-      <div className="w-full max-w-md md:max-w-4xl lg:max-w-5xl xl:max-w-6xl h-screen md:h-[90vh] md:max-h-[920px] shadow-2xl md:rounded-3xl border border-slate-250/50 dark:border-white/5 overflow-hidden flex flex-col relative transform transition-all bg-[#eef4fa] dark:bg-[#0B0C0E] text-slate-800 dark:text-slate-100">
+      <div className={`w-full transition-all duration-300 flex flex-col relative bg-[#eef4fa] text-slate-800 dark:bg-[#0B0C0E] dark:text-slate-100 ${
+        view === 'practice' || view === 'quiz'
+          ? 'max-w-none h-screen md:h-screen md:max-h-none md:rounded-none border-none shadow-none'
+          : 'max-w-md md:max-w-4xl lg:max-w-5xl xl:max-w-6xl h-screen md:h-[90vh] md:max-h-[920px] shadow-2xl md:rounded-3xl border border-slate-250/50 dark:border-white/5 overflow-hidden'
+      }`}>
         
         {/* Sleek top toolbar info row with top theme color bar */}
         {view !== 'practice' && view !== 'quiz' && (
@@ -874,7 +880,11 @@ export default function App() {
 
         {/* Scrollable View Containment Area */}
         <main 
-          className="flex-1 p-4 overflow-y-auto bg-transparent relative" 
+          className={`flex-1 bg-transparent relative transition-all duration-200 ${
+            view === 'practice' || view === 'quiz'
+              ? 'p-0 overflow-hidden'
+              : 'p-4 pb-12 overflow-y-auto scrollbar-thin'
+          }`}
           id="main-view-container"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -1201,7 +1211,7 @@ export default function App() {
                 )}
 
                 {view === 'practice' && (
-                  <div className="space-y-4 h-full">
+                  <div className="space-y-4 h-full overflow-y-auto p-4 md:p-6 lg:p-8 pb-12 scrollbar-thin">
                     <PracticeView
                       currentExam={currentExam}
                       onChangeExam={(exam) => {
