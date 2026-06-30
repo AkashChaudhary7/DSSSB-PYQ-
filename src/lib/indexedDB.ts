@@ -71,12 +71,8 @@ export async function saveQuestionsCached(questions: Question[]): Promise<void> 
         // It's an update, doesn't increase the unique count of questions for this subject
         allowedToSave.push(q);
       } else {
-        // It's a new question, check if we've reached 500 questions for this subject
-        const currentCount = subjectCounts[subj] || 0;
-        if (currentCount < 500) {
-          allowedToSave.push(q);
-          subjectCounts[subj] = currentCount + 1;
-        }
+        // Allow saving all questions without arbitrary local limit
+        allowedToSave.push(q);
       }
     }
 
