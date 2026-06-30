@@ -163,7 +163,7 @@ export async function uploadQuestionsInChunks(
       });
 
       let currentBundleQs: Question[] = [];
-      let nextIndex = lastIndex;
+      let nextIndex = lastIndex + 1;
       let lastBundleHasSpace = false;
 
       if (lastBundleDoc && lastBundleDoc.questions) {
@@ -175,7 +175,6 @@ export async function uploadQuestionsInChunks(
       }
 
       if (!lastBundleHasSpace) {
-        nextIndex = lastIndex + 1;
         currentBundleQs = [];
       }
 
