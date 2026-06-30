@@ -8,6 +8,7 @@ import * as Icons from 'lucide-react';
 import { Question, ExamConfig, ExamSubject, ExamRule } from '../types';
 import { saveCustomQuestions, getExamsConfig, saveExamsConfig, getAllQuestions, AdminActivity, getAdminActivities, logAdminActivity, getNormalizedSubject } from '../lib/storage';
 import { uploadQuestionsInChunks, saveExamsConfigToFirestore } from '../lib/questionSync';
+import { getCloudQuestionCount } from '../lib/syncEngine';
 import { getQuestionsCached, saveQuestionsCached, clearQuestionsCached } from '../lib/indexedDB';
 import { doc, setDoc, getDoc, db, dbMonitor } from '../lib/firebase';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -58,6 +59,25 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
     });
     return () => unsubscribe();
   }, []);
+
+  const [cloudQuestionCount, setCloudQuestionCount] = useState<number | null>(null);
+  const [isLoadingCloudCount, setIsLoadingCloudCount] = useState<boolean>(false);
+
+  const fetchCloudCount = async () => {
+    setIsLoadingCloudCount(true);
+    try {
+      const count = await getCloudQuestionCount();
+      setCloudQuestionCount(count);
+    } catch (e) {
+      console.error('Failed to load cloud question count:', e);
+    } finally {
+      setIsLoadingCloudCount(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCloudCount();
+  }, [activeTab]);
 
   const [isBackupExporting, setIsBackupExporting] = useState(false);
   const [backupMessage, setBackupMessage] = useState('');
@@ -1553,6 +1573,22 @@ export default function QuestionUploader({ onBack, onQuestionsSaved, currentUser
                   ? 'Firebase: Offline' 
                   : 'Firebase: Synced'}
             </span>
+          </div>
+
+          {/* Global Question Count directly from Firestore */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-indigo-500/25 bg-indigo-500/10 text-indigo-650 dark:text-indigo-400 text-[10px] font-mono font-bold transition-all shrink-0">
+            <Icons.Database className="w-3.5 h-3.5" />
+            <span className="whitespace-nowrap">
+              Cloud Qs: {isLoadingCloudCount ? 'Loading...' : cloudQuestionCount !== null ? cloudQuestionCount.toLocaleString() : 'N/A'}
+            </span>
+            <button
+              onClick={fetchCloudCount}
+              disabled={isLoadingCloudCount}
+              className="ml-1 p-0.5 hover:bg-indigo-500/20 rounded cursor-pointer transition-colors disabled:opacity-50"
+              title="Refresh Cloud Question Count"
+            >
+              <Icons.RefreshCw className={`w-2.5 h-2.5 ${isLoadingCloudCount ? 'animate-spin' : ''}`} />
+            </button>
           </div>
           
           <div className="hidden sm:flex items-center gap-2 shrink-0">
