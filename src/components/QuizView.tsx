@@ -24,6 +24,7 @@ interface QuizViewProps {
   isMockExam?: boolean; // True if mimicking real 200 Questions blueprint
   customCount?: number;
   overrideQuestions?: Question[];
+  theme?: 'light' | 'dark';
 }
 
 // State categories for TCS iON palette
@@ -47,7 +48,8 @@ export default function QuizView({
   examType = 'dsssb_tgt_cs',
   isMockExam = false,
   customCount,
-  overrideQuestions
+  overrideQuestions,
+  theme = 'dark'
 }: QuizViewProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIdx, setCurrentIdx] = useState<number>(0);
@@ -552,29 +554,51 @@ export default function QuizView({
   }
 
   return (
-    <div className="flex flex-col h-full bg-white text-slate-800 rounded-3xl overflow-hidden border border-slate-200 relative select-none">
+    <div className={`flex flex-col h-full overflow-hidden relative select-none transition-colors duration-200 ${
+      theme === 'dark'
+        ? 'bg-[#0c0d14] text-slate-100'
+        : 'bg-white text-slate-800'
+    }`}>
       
       {/* Top Professional Sub-Navbar */}
-      <div className="bg-slate-50 border-b border-slate-200 px-3 py-2.5 shrink-0 flex items-center justify-between text-xs z-10 animate-fade-in">
+      <div className={`border-b px-3 py-2.5 shrink-0 flex items-center justify-between text-xs z-10 animate-fade-in transition-colors duration-200 ${
+        theme === 'dark'
+          ? 'bg-[#151821] border-white/5 text-slate-300'
+          : 'bg-slate-50 border-slate-200 text-slate-650'
+      }`}>
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="px-1.5 py-0.5 bg-blue-50 border border-blue-200 rounded text-[8px] uppercase tracking-wider text-blue-600 font-bold shrink-0">
+          <span className={`px-1.5 py-0.5 border rounded text-[8px] uppercase tracking-wider font-bold shrink-0 ${
+            theme === 'dark'
+              ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
+              : 'bg-blue-50 border-blue-200 text-blue-600'
+          }`}>
             {isMockExam ? 'MOCK' : 'DRILL'}
           </span>
-          <span className="font-sans font-bold text-slate-800 truncate max-w-[120px] md:max-w-xs block text-[11px]">
+          <span className={`font-sans font-bold truncate max-w-[120px] md:max-w-xs block text-[11px] ${
+            theme === 'dark' ? 'text-slate-200' : 'text-slate-800'
+          }`}>
             {isMockExam ? (examType === 'dsssb_tgt_cs' ? 'DSSSB TGT CS' : 'DSSSB IT') : activeQ.topic}
           </span>
         </div>
 
         <div className="flex items-center gap-2 font-mono font-bold shrink-0 text-[11px]">
           {isTimed && (
-            <div className="flex items-center gap-1 bg-red-50 border border-red-200 text-red-600 px-1.5 py-0.5 rounded text-[10.5px]">
+            <div className={`flex items-center gap-1 border px-1.5 py-0.5 rounded text-[10.5px] ${
+              theme === 'dark'
+                ? 'bg-red-500/10 border-red-500/25 text-red-400'
+                : 'bg-red-50 border-red-200 text-red-600'
+            }`}>
               <Icons.Clock className="w-3 h-3 text-red-500 animate-pulse" />
               <span>{formatTime(timeLeft)}</span>
             </div>
           )}
           <button
             onClick={onQuit}
-            className="px-2 py-0.5 bg-slate-100 hover:bg-red-50 hover:text-red-600 border border-slate-200 rounded transition-colors text-[10px] cursor-pointer text-slate-600 font-bold"
+            className={`px-2 py-0.5 border rounded transition-colors text-[10px] cursor-pointer font-bold ${
+              theme === 'dark'
+                ? 'bg-[#1d202d] hover:bg-red-500/20 hover:text-red-400 border-white/5 text-slate-300'
+                : 'bg-slate-100 hover:bg-red-50 hover:text-red-600 border-slate-200 text-slate-600'
+            }`}
           >
             Quit
           </button>
@@ -582,16 +606,24 @@ export default function QuizView({
       </div>
 
       {/* TCS Palette Mini Panel / Accordion Toggle bar */}
-      <div className="bg-slate-100/50 border-b border-slate-200/60 px-3.5 py-2 flex items-center justify-between shrink-0 text-[10px] text-slate-500 font-sans">
+      <div className={`border-b px-3.5 py-2 flex items-center justify-between shrink-0 text-[10px] font-sans transition-colors duration-200 ${
+        theme === 'dark'
+          ? 'bg-[#12141c]/90 border-white/5 text-slate-400'
+          : 'bg-slate-100/50 border-slate-200/60 text-slate-500'
+      }`}>
         <div className="flex items-center gap-2 font-mono font-bold text-[10.5px]">
-          <span className="text-blue-600">Q. {currentIdx + 1} / {questions.length}</span>
-          <span className="text-slate-300">|</span>
-          <span className="text-emerald-600 font-extrabold">Ans: {answeredCount}</span>
+          <span className="text-blue-600 dark:text-indigo-400">Q. {currentIdx + 1} / {questions.length}</span>
+          <span className="text-slate-300 dark:text-white/10">|</span>
+          <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">Ans: {answeredCount}</span>
         </div>
         
         <button
           onClick={() => setShowPalette(!showPalette)}
-          className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/50 rounded flex items-center gap-1 font-bold text-[9px] uppercase tracking-wide transition-all cursor-pointer"
+          className={`px-2 py-0.5 border rounded flex items-center gap-1 font-bold text-[9px] uppercase tracking-wide transition-all cursor-pointer ${
+            theme === 'dark'
+              ? 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border-indigo-500/20'
+              : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200/50'
+          }`}
         >
           <Icons.LayoutGrid className="w-3 h-3" />
           <span>{showPalette ? 'Hide Matrix' : 'View Matrix'}</span>
@@ -599,18 +631,28 @@ export default function QuizView({
       </div>
 
       {/* Body Area */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 pb-20 relative bg-slate-50/30">
+      <div className={`flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-4 pb-24 relative transition-colors duration-200 ${
+        theme === 'dark' ? 'bg-[#0b0c11]' : 'bg-slate-50/30'
+      }`}>
         
         {/* Collapsible Question numbers palette mapping (Hiding / Above the question) */}
         {showPalette && (
-          <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-xl space-y-2 select-none animate-fadeIn">
-            <div className="flex items-center justify-between text-[9px] text-slate-500 uppercase tracking-wider font-mono">
+          <div className={`border p-2.5 rounded-xl space-y-2 select-none animate-fadeIn transition-colors duration-200 ${
+            theme === 'dark'
+              ? 'bg-[#161922] border-white/10'
+              : 'bg-slate-50 border-slate-200'
+          }`}>
+            <div className={`flex items-center justify-between text-[9px] uppercase tracking-wider font-mono ${
+              theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+            }`}>
               <span>Navigation Matrix Map</span>
               <span>Total Questions: {questions.length}</span>
             </div>
             
             {/* Legend info row */}
-            <div className="grid grid-cols-4 gap-1 text-[8.5px] text-slate-500 border-b border-slate-200/60 pb-2">
+            <div className={`grid grid-cols-4 gap-1 text-[8.5px] border-b pb-2 transition-colors duration-200 ${
+              theme === 'dark' ? 'border-white/5 text-slate-450' : 'border-slate-200/60 text-slate-500'
+            }`}>
               <div className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
                 <span>Ans ({answeredCount})</span>
@@ -631,10 +673,12 @@ export default function QuizView({
 
             <div className="grid grid-cols-7 gap-1.5 max-h-[140px] overflow-y-auto pr-1">
               {tcsStates.map((stateObj, idx) => {
-                let circleColor = "bg-slate-100 text-slate-600 border-slate-200/80 hover:bg-slate-200 hover:text-slate-800";
+                let circleColor = theme === 'dark'
+                  ? "bg-[#1d202d] text-slate-350 border-white/5 hover:bg-[#282c3e] hover:text-white"
+                  : "bg-slate-100 text-slate-600 border-slate-200/80 hover:bg-slate-200 hover:text-slate-800";
 
                 if (idx === currentIdx) {
-                  circleColor = "bg-blue-100 text-blue-700 border-blue-400 ring-1 ring-blue-300 font-extrabold";
+                  circleColor = "bg-blue-100 text-blue-700 border-blue-400 ring-1 ring-blue-300 font-extrabold dark:bg-indigo-900/55 dark:text-indigo-200 dark:border-indigo-450 dark:ring-indigo-500/30";
                 } else if (stateObj.state === 'answered') {
                   circleColor = "bg-emerald-500 text-white border-transparent font-black";
                 } else if (stateObj.state === 'not_answered') {
@@ -666,52 +710,74 @@ export default function QuizView({
         )}
 
         {/* Header Details (Difficulty + Bookmark) */}
-        <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
-          <span className="text-blue-600 font-extrabold uppercase tracking-tight text-[9px] truncate max-w-[200px]">
+        <div className={`flex items-center justify-between text-[10.5px] font-mono ${theme === 'dark' ? 'text-slate-450' : 'text-slate-500'}`}>
+          <span className="text-blue-600 dark:text-indigo-450 font-black uppercase tracking-tight text-[9.5px] truncate max-w-[200px] md:max-w-md">
             {activeQ.subtopic || 'General Practice'}
           </span>
           <div className="flex items-center gap-2">
             <button 
               onClick={() => handleBookmarkToggle(activeQ.id)}
-              className="p-1 text-slate-400 hover:text-amber-500 transition-colors cursor-pointer"
+              className={`p-1 transition-colors cursor-pointer ${theme === 'dark' ? 'text-slate-500 hover:text-amber-400' : 'text-slate-400 hover:text-amber-500'}`}
               title="Bookmark Question"
             >
               <Icons.Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-amber-400 text-amber-400' : ''}`} />
             </button>
-            <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold border uppercase ${activeQ.difficulty === 'easy' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : activeQ.difficulty === 'hard' ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+            <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold border uppercase ${
+              activeQ.difficulty === 'easy' 
+                ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' 
+                : activeQ.difficulty === 'hard' 
+                  ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20' 
+                  : 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20'
+            }`}>
               {activeQ.difficulty}
             </span>
           </div>
         </div>
 
         {/* Question Text Prompt - tight & clean */}
-        <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 shadow-xs text-left">
-          <h3 className="text-[12.5px] font-bold text-slate-800 leading-relaxed font-sans select-none break-words">
+        <div className={`border rounded-xl p-4.5 md:p-6 shadow-xs text-left transition-colors duration-200 ${
+          theme === 'dark' ? 'bg-[#151720] border-white/5' : 'bg-slate-50 border-slate-200/80'
+        }`}>
+          <h3 className={`text-[13px] md:text-sm font-bold leading-relaxed font-sans select-none break-words ${
+            theme === 'dark' ? 'text-slate-100' : 'text-slate-800'
+          }`}>
             {activeQ.text}
           </h3>
         </div>
 
         {/* MCQ Option touch zones - perfectly sized for mobile view */}
-        <div className="space-y-2">
+        <div className="space-y-2.5 max-w-4xl mx-auto w-full animate-fade-in">
           {activeQ.options.map((option, idx) => {
             const isSelected = activeState?.selectedOptionIndex === idx;
             const isCorrectAnswer = idx === activeQ.correctIndex;
             const showVerification = !isMockExam && showExplanation;
 
-            let cardStyles = "border-slate-200 bg-white hover:bg-slate-50 text-slate-700";
-            let radioStyles = "border-slate-300 text-slate-400 bg-slate-50";
+            let cardStyles = theme === 'dark'
+              ? "border-white/5 bg-[#12141c] hover:bg-[#1a1c26] text-slate-250"
+              : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700";
+            let radioStyles = theme === 'dark'
+              ? "border-white/10 text-slate-400 bg-black/20"
+              : "border-slate-300 text-slate-400 bg-slate-50";
 
             if (showVerification) {
               if (isCorrectAnswer) {
-                cardStyles = "bg-emerald-50 border-emerald-300 text-emerald-800 font-bold";
+                cardStyles = theme === 'dark'
+                  ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300 font-bold"
+                  : "bg-emerald-50 border-emerald-300 text-emerald-800 font-bold";
                 radioStyles = "border-emerald-400 bg-emerald-500 text-white";
               } else if (isSelected) {
-                cardStyles = "bg-rose-50 border-rose-300 text-rose-800 font-bold";
-                radioStyles = "border-rose-400 bg-rose-505 text-white";
+                cardStyles = theme === 'dark'
+                  ? "bg-rose-500/15 border-rose-500/40 text-rose-300 font-bold"
+                  : "bg-rose-50 border-rose-300 text-rose-800 font-bold";
+                radioStyles = "border-rose-450 bg-rose-500 text-white";
               }
             } else if (isSelected) {
-              cardStyles = "bg-blue-50 border-blue-400 text-blue-700 font-bold shadow-sm";
-              radioStyles = "border-blue-400 bg-blue-600 text-white";
+              cardStyles = theme === 'dark'
+                ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-300 font-bold shadow-xs"
+                : "bg-blue-50 border-blue-400 text-blue-700 font-bold shadow-xs";
+              radioStyles = theme === 'dark'
+                ? "border-indigo-500 bg-indigo-500 text-white"
+                : "border-blue-400 bg-blue-600 text-white";
             }
 
             return (
@@ -719,12 +785,18 @@ export default function QuizView({
                 key={idx}
                 onClick={() => !showExplanation && handleSelectOption(idx)}
                 disabled={showExplanation}
-                className={`w-full text-left p-3 rounded-xl border flex items-center gap-2.5 cursor-pointer text-[11.5px] transition-all duration-155 min-h-[44px] ${cardStyles}`}
+                className={`w-full text-left p-3.5 md:p-4 rounded-xl border flex items-center gap-3 cursor-pointer text-[12px] md:text-sm transition-all duration-150 min-h-[46px] shadow-2xs ${cardStyles}`}
               >
-                <div className={`w-4.5 h-4.5 rounded-full border flex items-center justify-center font-bold text-[9px] shrink-0 ${radioStyles}`}>
-                  {showVerification && isCorrectAnswer ? <Icons.Check className="w-3 h-3" /> : showVerification && isSelected ? <Icons.X className="w-3 h-3" /> : String.fromCharCode(65 + idx)}
+                <div className={`w-5 h-5 rounded-full border flex items-center justify-center font-bold text-[10px] shrink-0 ${radioStyles}`}>
+                  {showVerification && isCorrectAnswer ? (
+                    <Icons.Check className="w-3.5 h-3.5" />
+                  ) : showVerification && isSelected ? (
+                    <Icons.X className="w-3.5 h-3.5" />
+                  ) : (
+                    String.fromCharCode(65 + idx)
+                  )}
                 </div>
-                <span className="leading-snug select-none break-words">{option}</span>
+                <span className="leading-snug select-none break-words flex-1">{option}</span>
               </button>
             );
           })}
@@ -732,31 +804,45 @@ export default function QuizView({
 
         {/* Practice Mode Explanation Box */}
         {showExplanation && activeQ.explanation && (
-          <div className="p-3 bg-emerald-50/20 border border-emerald-150 rounded-xl text-xs text-slate-650 space-y-1.5 animate-fade-in">
-            <div className="flex items-center gap-1.5 text-emerald-600 font-bold uppercase tracking-wider text-[9px]">
-              <Icons.BookOpen className="w-3.5 h-3.5 text-emerald-500" />
+          <div className={`p-4 border rounded-xl text-xs space-y-1.5 animate-fade-in max-w-4xl mx-auto w-full transition-colors duration-200 ${
+            theme === 'dark'
+              ? 'bg-emerald-500/5 border-emerald-500/15 text-slate-300'
+              : 'bg-emerald-50/25 border-emerald-150 text-slate-650'
+          }`}>
+            <div className={`flex items-center gap-1.5 font-bold uppercase tracking-wider text-[9px] ${
+              theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
+            }`}>
+              <Icons.BookOpen className={`w-3.5 h-3.5 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-500'}`} />
               <span>Explanation</span>
             </div>
-            <p className="leading-relaxed text-[11px] text-slate-600 select-none">{activeQ.explanation}</p>
+            <p className="leading-relaxed text-[11px] md:text-[12px] select-none text-slate-600 dark:text-slate-300">{activeQ.explanation}</p>
           </div>
         )}
       </div>
 
       {/* Compact TCS Action Footer perfect for mobile width - No wrap, small, elegant */}
-      <footer className="absolute bottom-0 left-0 right-0 py-2.5 px-3 bg-slate-50/95 border-t border-slate-200/80 flex items-center justify-between gap-1.5 shrink-0 select-none z-10 font-sans animate-fade-in">
+      <footer className={`absolute bottom-0 left-0 right-0 py-3 px-4 border-t flex items-center justify-between gap-2 shrink-0 select-none z-10 font-sans animate-fade-in transition-colors duration-200 ${
+        theme === 'dark'
+          ? 'bg-[#12141c]/95 border-white/5'
+          : 'bg-slate-50/95 border-slate-200/80'
+      }`}>
         
         <div className="flex gap-1.5">
           {isMockExam && (
             <>
               <button
                 onClick={handleMarkForReviewAndNext}
-                className="py-2 px-2.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-300/30 text-amber-700 font-bold rounded-lg text-[9.5px] transition-colors cursor-pointer shrink-0"
+                className="py-2 px-2.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-300/30 text-amber-700 dark:text-amber-400 font-bold rounded-lg text-[9.5px] transition-colors cursor-pointer shrink-0"
               >
                 Review
               </button>
               <button
                 onClick={handleClearResponse}
-                className="py-2 px-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-500 hover:text-slate-800 font-bold rounded-lg text-[9.5px] transition-colors cursor-pointer shrink-0"
+                className={`py-2 px-2.5 border font-bold rounded-lg text-[9.5px] transition-colors cursor-pointer shrink-0 ${
+                  theme === 'dark'
+                    ? 'bg-[#1e212f] hover:bg-[#282c3e] border-white/10 text-slate-300'
+                    : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-500 hover:text-slate-800'
+                }`}
               >
                 Clear
               </button>
@@ -766,7 +852,11 @@ export default function QuizView({
           {currentIdx > 0 && (
             <button
               onClick={handlePrevious}
-              className="py-2 px-3 bg-slate-100 hover:bg-slate-200 border border-slate-250 text-slate-600 hover:text-slate-800 font-bold rounded-lg text-[9.5px] leading-tight transition-colors cursor-pointer shrink-0"
+              className={`py-2 px-3 border font-bold rounded-lg text-[9.5px] leading-tight transition-colors cursor-pointer shrink-0 ${
+                theme === 'dark'
+                  ? 'bg-[#1e212f] hover:bg-[#282c3e] border-white/10 text-slate-300'
+                  : 'bg-slate-100 hover:bg-slate-200 border-slate-250 text-slate-600 hover:text-slate-800'
+              }`}
             >
               Prev
             </button>
@@ -792,7 +882,11 @@ export default function QuizView({
             isMockExam ? (
               <button
                 onClick={handleNext}
-                className="py-2 px-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-250 text-slate-500 hover:text-slate-800 font-bold rounded-lg text-[9.5px] transition-all cursor-pointer shrink-0"
+                className={`py-2 px-2.5 border font-bold rounded-lg text-[9.5px] transition-all cursor-pointer shrink-0 ${
+                  theme === 'dark'
+                    ? 'bg-[#1e212f] hover:bg-[#282c3e] border-white/10 text-slate-400 hover:text-white'
+                    : 'bg-slate-100 hover:bg-slate-200 border-slate-250 text-slate-500 hover:text-slate-800'
+                }`}
               >
                 Skip
               </button>
