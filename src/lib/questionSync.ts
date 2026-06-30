@@ -124,7 +124,7 @@ export async function uploadQuestionsInChunks(
   if (!questions || questions.length === 0) return;
 
   // 1. Save to local IndexedDB immediately for instant availability
-  await saveQuestionsCached(questions);
+  await saveQuestionsCached(questions, true);
 
   // 2. Sync to Firestore in aggregated bundles
   try {
@@ -386,12 +386,14 @@ export async function syncQuestionsFromFirestore(
         if (lastVisible) {
           q = query(
             collection(db, BUNDLES_COLLECTION),
+            orderBy('updatedAt'),
             startAfter(lastVisible),
             limit(BATCH_LIMIT)
           );
         } else {
           q = query(
             collection(db, BUNDLES_COLLECTION),
+            orderBy('updatedAt'),
             limit(BATCH_LIMIT)
           );
         }
@@ -487,7 +489,7 @@ export async function syncQuestionsFromFirestore(
       if (batchQuestions.length > 0) {
         // Store in local IndexedDB cache incrementally
         try {
-          await saveQuestionsCached(batchQuestions);
+          await saveQuestionsCached(batchQuestions, true);
         } catch (dbErr) {
           console.error(`[Sync Debug] saveQuestionsCached failed!`, dbErr);
           throw dbErr; // Let the outer catch handle it
