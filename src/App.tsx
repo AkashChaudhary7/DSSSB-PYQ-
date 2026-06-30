@@ -1221,6 +1221,7 @@ export default function App() {
                       theme={theme}
                       onSelectSubtopic={handleSelectSubtopic}
                       questionPool={questionPool}
+                      onForceCloudPull={handleForceCloudPull}
                     />
                   </div>
                 )}
