@@ -28,7 +28,12 @@ export default function UserAuth({ onAuthChanged, currentUser, userProfile }: Us
       localStorage.setItem('cs_mcq_local_name', cleanName);
       
       const savedProfile = localStorage.getItem('cs_mcq_local_profile');
-      let profile = savedProfile ? JSON.parse(savedProfile) : {};
+      let profile: any = {};
+      try {
+        profile = savedProfile ? JSON.parse(savedProfile) : {};
+      } catch (e) {
+        console.warn('Failed to parse local profile:', e);
+      }
       profile.displayName = cleanName;
       localStorage.setItem('cs_mcq_local_profile', JSON.stringify(profile));
 
