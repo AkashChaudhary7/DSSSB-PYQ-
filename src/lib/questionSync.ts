@@ -332,7 +332,12 @@ export async function syncQuestionsFromFirestore(
   const attemptedIds = new Set<string>();
   try {
     const attemptsStr = localStorage.getItem('cs_mcq_quiz_attempts') || '[]';
-    const attempts = JSON.parse(attemptsStr);
+    let attempts = [];
+    try {
+      attempts = JSON.parse(attemptsStr);
+    } catch (e) {
+      console.warn('Failed to parse attemptsStr:', e);
+    }
     attempts.forEach((a: any) => {
       if (a.questions && Array.isArray(a.questions)) {
         a.questions.forEach((q: any) => {
