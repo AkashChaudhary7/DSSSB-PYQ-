@@ -62,10 +62,12 @@ export async function saveQuestionsCached(questions: Question[], enforceSubjectL
       }
 
       allowedToSave = [];
+      const csTopics = ['Computer Science', 'Operating Systems', 'Computer Networks', 'Database Systems', 'Data Structures & Algos', 'Digital Logic', 'Web Tech & Programming', 'Tech Core', 'Information Tech'];
       for (const q of questions) {
         const subj = q.topic || 'Unknown';
         const currentCount = subjectCounts[subj] || 0;
-        if (currentCount < 500) {
+        const isSubjectSpecific = csTopics.includes(subj) || subj.toLowerCase().includes('computer') || subj === 'Teaching Methodology' || q.part === 'B';
+        if (isSubjectSpecific || currentCount < 500) {
           allowedToSave.push(q);
           subjectCounts[subj] = currentCount + 1;
         }
