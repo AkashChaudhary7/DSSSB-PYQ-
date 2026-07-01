@@ -40,7 +40,7 @@ import { onAuthStateChanged, User, signInAnonymously } from 'firebase/auth';
 import * as Icons from 'lucide-react';
 import { getQuestionsCached, clearQuestionsCached } from './lib/indexedDB';
 import { syncQuestionsFromFirestore } from './lib/questionSync';
-import { syncGlobalData, forceCloudPull, getCloudQuestionCount } from './lib/syncEngine';
+import { syncGlobalData, forceCloudPull, getCloudQuestionCount, getCloudQuestionBreakdown } from './lib/syncEngine';
 import { motion, AnimatePresence } from 'motion/react';
 
 type MainView = 'home' | 'practice' | 'quiz' | 'bookmarks' | 'analytics' | 'generator' | 'roadmap';
@@ -218,6 +218,7 @@ export default function App() {
 
   const [localIndexedDBCount, setLocalIndexedDBCount] = useState<number | null>(null);
   const [firestoreExpectedCount, setFirestoreExpectedCount] = useState<number | null>(null);
+  const [cloudSubjectBreakdown, setCloudSubjectBreakdown] = useState<Record<string, number> | null>(null);
   const [clearCacheConfirm, setClearCacheConfirm] = useState<'idle' | 'confirm' | 'success'>('idle');
 
   const recentBatches = useMemo(() => {
@@ -250,16 +251,18 @@ export default function App() {
           console.error("Failed to read local questions count for sync stats:", e);
         }
         try {
-          const cloudCount = await getCloudQuestionCount();
-          setFirestoreExpectedCount(cloudCount);
+          const breakdownResult = await getCloudQuestionBreakdown();
+          setFirestoreExpectedCount(breakdownResult.total);
+          setCloudSubjectBreakdown(breakdownResult.bySubject);
         } catch (e) {
-          console.error("Failed to read cloud questions count for sync stats:", e);
+          console.error("Failed to read cloud questions count and breakdown for sync stats:", e);
         }
       };
       fetchSyncStats();
     } else {
       setLocalIndexedDBCount(null);
       setFirestoreExpectedCount(null);
+      setCloudSubjectBreakdown(null);
     }
   }, [isSyncing]);
 
@@ -568,7 +571,10 @@ export default function App() {
 
     // Update active local profile
     const saved = localStorage.getItem('cs_mcq_local_profile');
-    const profile = saved ? JSON.parse(saved) : {};
+    let profile: any = {};
+    try {
+      profile = saved ? JSON.parse(saved) : {};
+    } catch (e) {}
     profile.points = currentTotalPoints;
     profile.badges = unlockedBadges;
     localStorage.setItem('cs_mcq_local_profile', JSON.stringify(profile));
@@ -1005,6 +1011,34 @@ export default function App() {
                         💡 <span className="text-amber-300 font-bold">Why is content limited?</span> Caches syllabus-aligned batches for your active path to save data overhead.
                       </p>
                     </div>
+
+                    {/* Subject Breakdown Box */}
+                    {cloudSubjectBreakdown && Object.keys(cloudSubjectBreakdown).length > 0 && (
+                      <div className="mt-4 pt-3.5 border-t border-white/5">
+                        <div className="flex items-center gap-1.5 mb-2.5">
+                          <Icons.Library className="w-3.5 h-3.5 text-indigo-400" />
+                          <span className="text-[9px] font-bold text-slate-300 uppercase tracking-wider font-mono">Cloud Subject Breakdown</span>
+                        </div>
+                        <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                          {Object.entries(cloudSubjectBreakdown)
+                            .sort((a, b) => (b[1] as number) - (a[1] as number))
+                            .map(([subject, count], idx) => (
+                              <motion.div 
+                                initial={{ opacity: 0, y: 5 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: idx * 0.05 }}
+                                key={subject}
+                                className="flex justify-between items-center text-[9px] bg-black/30 px-2.5 py-1.5 rounded-lg border border-white/5 font-mono"
+                              >
+                                <span className="text-slate-300 truncate max-w-[180px]">{subject}</span>
+                                <span className="font-extrabold text-indigo-300 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/15">
+                                  {count} Qs
+                                </span>
+                              </motion.div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Recent Batches List */}
                     <div className="mt-4 pt-3.5 border-t border-white/5">
