@@ -66,11 +66,10 @@ export async function saveQuestionsCached(questions: Question[], enforceSubjectL
       for (const q of questions) {
         const subj = q.topic || 'Unknown';
         const currentCount = subjectCounts[subj] || 0;
-        const isSubjectSpecific = csTopics.includes(subj) || subj.toLowerCase().includes('computer') || subj === 'Teaching Methodology' || q.part === 'B';
-        if (isSubjectSpecific || currentCount < 500) {
-          allowedToSave.push(q);
-          subjectCounts[subj] = currentCount + 1;
-        }
+        
+        // Removed 500 question capping 
+        allowedToSave.push(q);
+        subjectCounts[subj] = currentCount + 1;
       }
     }
 
