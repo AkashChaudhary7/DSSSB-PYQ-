@@ -159,19 +159,55 @@ export async function getCloudQuestionCount(): Promise<number> {
     throw new Error('Firestore Quota Exhausted: Bypassed by Administrator (Simulated offline mode).');
   }
   try {
-    const coll = collection(db, 'questions');
-    dbMonitor.incrementReads(1);
-    const snapshot = await getCountFromServer(coll);
-    return snapshot.data().count;
+    const coll = collection(db, 'question_bundles');
+    const snapshot = await getDocs(coll);
+    dbMonitor.incrementReads(snapshot.size);
+    let totalQuestions = 0;
+    snapshot.forEach((doc) => {
+      const data = doc.data() as any;
+      if (data && Array.isArray(data.questions)) {
+        totalQuestions += data.questions.length;
+      }
+    });
+    return totalQuestions;
   } catch (error) {
-    console.error('[SyncEngine] Error getting cloud question count via getCountFromServer, attempting fallback:', error);
-    try {
-      const snap = await getDocs(query(collection(db, 'questions'), limit(1000)));
-      return snap.size;
-    } catch (err) {
-      console.error('[SyncEngine] Fallback cloud question count failed:', err);
-      return 0;
-    }
+    console.error('[SyncEngine] Error getting cloud question count from question_bundles:', error);
+    return 0;
   }
 }
 
+export interface CloudQuestionBreakdown {
+  total: number;
+  bySubject: Record<string, number>;
+}
+
+/**
+ * Retrieves the breakdown of questions per subject from the global Firestore collection.
+ */
+export async function getCloudQuestionBreakdown(): Promise<CloudQuestionBreakdown> {
+  if (dbMonitor.isBypassed()) {
+    throw new Error('Firestore Quota Exhausted: Bypassed by Administrator (Simulated offline mode).');
+  }
+  const result: CloudQuestionBreakdown = {
+    total: 0,
+    bySubject: {}
+  };
+  try {
+    const coll = collection(db, 'question_bundles');
+    const snapshot = await getDocs(coll);
+    dbMonitor.incrementReads(snapshot.size);
+    snapshot.forEach((doc) => {
+      const data = doc.data() as any;
+      if (data && Array.isArray(data.questions)) {
+        result.total += data.questions.length;
+        data.questions.forEach((q: any) => {
+          const subject = q.topic || 'Unknown';
+          result.bySubject[subject] = (result.bySubject[subject] || 0) + 1;
+        });
+      }
+    });
+  } catch (error) {
+    console.error('[SyncEngine] Error getting cloud question breakdown:', error);
+  }
+  return result;
+}
